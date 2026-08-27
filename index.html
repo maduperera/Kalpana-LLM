@@ -35,7 +35,6 @@
         <img src="assets/icon-192.png" alt="Kalpanā Logo" class="brand-logo">
         <div class="brand-info">
           <h1>Kalpanā LLM</h1>
-          <span class="brand-badge" id="currentBandsLabel">2048 Bands</span>
         </div>
       </div>
 
@@ -77,45 +76,34 @@
           </span>
           <span style="font-family:var(--font-mono);font-size:0.7rem;">ZERO CLOUD</span>
         </div>
-        <button id="installAppBtn" class="btn-install" style="display:none;">
+        <button id="installAppBtn" class="btn-install">
           <span>📱</span>
           <span>Install Kalpanā App</span>
         </button>
       </div>
     </aside>
 
+    <div id="sidebarOverlay" class="sidebar-overlay"></div>
+
     <!-- Main Application Wrapper -->
     <main class="main-wrapper">
       
-      <!-- Sticky Header -->
+      <!-- Minimal Sticky Header -->
       <header class="top-header">
-        <div class="header-title">
-          <h2 id="currentTabHeading">Kalpanā LLM Phase Attention Core</h2>
+        <div style="display:flex;align-items:center;gap:10px;">
+          <button id="mobileMenuBtn" class="mobile-menu-btn" aria-label="Open Navigation">☰</button>
+          <span style="font-family:var(--font-heading);font-weight:800;font-size:1.15rem;color:#fff;letter-spacing:-0.02em;">Kalpanā</span>
         </div>
 
-        <div class="header-stats">
-          <div class="stat-chip">
-            <span class="label">Engine:</span>
-            <span class="val" style="color:var(--cyan-400);">SmolLM2 360M</span>
+        <div style="display:flex;align-items:center;gap:12px;">
+          <div class="offline-pill" style="margin-bottom:0;padding:5px 10px;font-size:0.75rem;">
+            <span class="pulse-dot"></span>
+            <span>100% Offline</span>
           </div>
-
-          <div class="stat-chip">
-            <span class="label">Harmonics:</span>
-            <span class="val" style="color:var(--emerald-400);">2048 Bands</span>
-          </div>
-
-          <div class="stat-chip">
-            <span class="label">RIF State:</span>
-            <span class="val" id="headerMemoryVal">49.15 MB</span>
-          </div>
-          <div class="stat-chip">
-            <span class="label">Tokens:</span>
-            <span class="val" id="headerTokenVal">0 tok</span>
-          </div>
-          <div class="stat-chip">
-            <span class="label">Std KV Eq:</span>
-            <span class="val" id="headerStdKvVal" style="color:var(--rose-400);">0.00 GB</span>
-          </div>
+          <button id="headerInstallBtn" class="btn-install-header">
+            <span>📱</span>
+            <span>Install App</span>
+          </button>
         </div>
       </header>
 
@@ -133,7 +121,7 @@
                   <span>🧠</span>
                   <span>Resonant Phase Attention & Intelligence</span>
                 </h3>
-                <span class="badge badge-emerald">ZERO KV CACHE: STRICT O(1)</span>
+                <span class="badge badge-emerald">ZERO KV CACHE</span>
               </div>
 
               <div class="chat-messages" id="chatMessages">
@@ -141,10 +129,8 @@
                   <div>
                     ✨ <strong>Welcome to Kalpanā LLM!</strong>
                     <br><br>
-                    This system runs the <strong>Native RIF Phase Attention Core</strong> (2048 Harmonic Bands). The internal discrete KV cache has been completely eliminated — every token projects directly into continuous Fourier wave states ($K_{re}, K_{im}, V_{re}, V_{im}$).
-                    <br><br>
                     <div class="llm-loading-banner" id="qwenLoadBanner">
-                      <span>⏳ Initialising Qwen 2.5 0.5B WebGPU Engine...</span>
+                      <span>⏳ Loading SmolLM2 360M WebGPU Engine...</span>
                     </div>
                   </div>
                   <div class="msg-meta">
@@ -155,7 +141,7 @@
               </div>
 
               <div class="chat-input-bar">
-                <input type="text" id="chatInput" class="input-field" placeholder="Ask general questions (e.g. 'what is cricket', 'who is thomas edison') or query 3M cache..." autocomplete="off">
+                <input type="text" id="chatInput" class="input-field" placeholder="Ask anything (e.g. 'what is tennis', 'who is thomas edison')..." autocomplete="off">
                 <button id="chatSendBtn" class="btn-primary">
                   <span>Send</span>
                   <span>🚀</span>
@@ -164,7 +150,7 @@
             </div>
 
             <!-- Side HUD: Futuristic Live Wheel Meter Gauges -->
-            <div style="display:flex;flex-direction:column;gap:16px;">
+            <div class="wheel-meters-hud" style="display:flex;flex-direction:column;gap:16px;">
               
               <!-- Wheel Gauge 1: RIF State Memory -->
               <div class="wheel-meter-card">

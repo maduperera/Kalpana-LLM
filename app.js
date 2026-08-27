@@ -34,7 +34,48 @@ document.addEventListener('DOMContentLoaded', async () => {
   let isModelReady = false;
   const conversationHistory = [];
 
-  // 4. Live Telemetry Top Header & Wheel Meter Updater
+  // 4. PWA Installation Event Handling
+  window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    deferredInstallPrompt = e;
+  });
+
+  const installBtns = [document.getElementById('installAppBtn'), document.getElementById('headerInstallBtn')];
+  installBtns.forEach((btn) => {
+    if (btn) {
+      btn.addEventListener('click', async () => {
+        if (deferredInstallPrompt) {
+          deferredInstallPrompt.prompt();
+          const { outcome } = await deferredInstallPrompt.userChoice;
+          if (outcome === 'accepted') {
+            showToast('success', 'Installed!', 'Kalpanā LLM is now installed on your device.');
+          }
+          deferredInstallPrompt = null;
+        } else {
+          showToast('info', 'Install Kalpanā App', 'To install on iOS Safari: tap Share (⎋) ➔ Add to Home Screen (+). On Chrome/Edge: click Install in the address bar.');
+        }
+      });
+    }
+  });
+
+  // Mobile Drawer Toggle
+  const mobileMenuBtn = document.getElementById('mobileMenuBtn');
+  const sidebar = document.getElementById('sidebar');
+  const sidebarOverlay = document.getElementById('sidebarOverlay');
+
+  if (mobileMenuBtn && sidebar && sidebarOverlay) {
+    mobileMenuBtn.addEventListener('click', () => {
+      sidebar.classList.toggle('mobile-open');
+      sidebarOverlay.classList.toggle('active');
+    });
+
+    sidebarOverlay.addEventListener('click', () => {
+      sidebar.classList.remove('mobile-open');
+      sidebarOverlay.classList.remove('active');
+    });
+  }
+
+  // 5. Live Telemetry Top Header & Wheel Meter Updater
   function updateLiveTelemetryHeader() {
     const memEl = document.getElementById('headerMemoryVal');
     const tokEl = document.getElementById('headerTokenVal');
@@ -273,8 +314,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   }
 
-  // Start with balanced SmolLM2 360M (~140MB)
-  loadWebLLMModel();
+  // Start with balanced SmolLM2 360M (~140MB) in non-blocking background queue
+  setTimeout(() => {
+    loadWebLLMModel();
+  }, 400);
 
   // 8. Holographic Chat Interface
   const chatInput = document.getElementById('chatInput');
