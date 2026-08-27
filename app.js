@@ -159,32 +159,44 @@ document.addEventListener('DOMContentLoaded', async () => {
     return null;
   }
 
-  // 7. Background WebLLM Qwen 2.5 0.5B Initializer
+  // 7. Background WebLLM Qwen 2.5 0.5B Initializer with Visual Progress Bar
   async function initWebLLMEngine() {
+    const getBanner = () => document.getElementById('qwenLoadBanner');
+
+    const updateProgress = (text, progress = 0) => {
+      const banner = getBanner();
+      if (!banner) return;
+      const pct = Math.min(100, Math.max(0, Math.round((progress || 0) * 100)));
+      banner.innerHTML = `
+        <div style="width:100%;">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;font-size:0.75rem;">
+            <span>⏳ <strong>${escapeHtml(text || 'Loading Qwen 2.5 0.5B...')}</strong></span>
+            <span style="font-family:var(--font-mono);font-weight:700;color:var(--cyan-300);">${pct}%</span>
+          </div>
+          <div style="width:100%;height:6px;background:rgba(255,255,255,0.08);border-radius:99px;overflow:hidden;">
+            <div style="width:${pct}%;height:100%;background:linear-gradient(90deg, var(--cyan-400), var(--emerald-400));transition:width 0.2s ease;box-shadow:0 0 8px rgba(56,189,248,0.5);"></div>
+          </div>
+          <div style="font-size:0.68rem;color:var(--text-muted);margin-top:4px;display:flex;justify-content:space-between;">
+            <span>${pct < 100 ? `${Math.round(pct * 4.5)} MB / ~450 MB (Saved permanently in browser storage)` : 'Compiling WebGPU shaders...'}</span>
+            <span>One-time download</span>
+          </div>
+        </div>
+      `;
+    };
+
     try {
       isModelLoading = true;
-      console.log('⚡ Initialising WebLLM Qwen 2.5 0.5B Engine...');
+      updateProgress('Connecting to Hugging Face CDN...', 0.05);
 
       // Dynamic import of WebLLM ESM
       const webllm = await import("https://esm.run/@mlc-ai/web-llm");
 
       const selectedModel = "Qwen2.5-0.5B-Instruct-q4f16_1-MLC";
-      
-      const appChatBubble = document.querySelector('.chat-bubble.assistant div');
-      if (appChatBubble) {
-        appChatBubble.innerHTML = `✨ <strong>Kalpanā LLM Phase Core Ready</strong><br><br>` +
-          `• <strong>Attention Engine:</strong> 2048 Continuous Fourier Bands ($O(1)$ memory: <strong>49.15 MB</strong>)<br>` +
-          `• <strong>Neural LLM:</strong> Downloading Qwen2.5-0.5B-Instruct into WebGPU cache...<br>` +
-          `<div class="llm-loading-banner" id="qwenLoadBanner">⏳ Initialising WebGPU shaders...</div>`;
-      }
 
       webllmEngine = await webllm.CreateMLCEngine(selectedModel, {
         initProgressCallback: (report) => {
-          console.log(report.text);
-          const banner = document.getElementById('qwenLoadBanner');
-          if (banner) {
-            banner.textContent = `⏳ ${report.text}`;
-          }
+          console.log('[WebLLM]', report.text, report.progress);
+          updateProgress(report.text, report.progress);
         }
       });
 
@@ -192,22 +204,59 @@ document.addEventListener('DOMContentLoaded', async () => {
       isModelLoading = false;
       console.log('🟢 Qwen2.5-0.5B WebGPU Engine is READY!');
 
-      const banner = document.getElementById('qwenLoadBanner');
+      const banner = getBanner();
       if (banner) {
         banner.style.background = 'rgba(52, 211, 153, 0.12)';
         banner.style.borderColor = 'rgba(52, 211, 153, 0.4)';
-        banner.style.color = 'var(--emerald-400)';
-        banner.textContent = '🟢 Qwen2.5-0.5B Neural Engine Active (WebGPU)';
+        banner.innerHTML = `
+          <div style="display:flex;align-items:center;gap:8px;color:var(--emerald-400);font-weight:600;font-size:0.82rem;">
+            <span>🟢</span>
+            <span>Qwen 2.5 0.5B Active (WebGPU Neural Engine Ready & Cached)</span>
+          </div>
+        `;
       }
 
       showToast('success', 'Qwen 2.5 Ready', 'Qwen2.5-0.5B neural model active in WebGPU!');
     } catch (err) {
-      console.warn('WebGPU / WebLLM not available, running in native Phase Attention mode:', err);
-      isModelLoading = false;
-      isModelReady = false;
-      const banner = document.getElementById('qwenLoadBanner');
-      if (banner) {
-        banner.textContent = '⚡ Native Phase Attention Knowledge Core Active';
+      console.warn('q4f16_1 failed, trying q4f32_1 fallback:', err);
+      // Fallback to q4f32_1 for GPUs without native f16 shader support
+      try {
+        updateProgress('Switching to universal FP32 shader mode...', 0.1);
+        const webllm = await import("https://esm.run/@mlc-ai/web-llm");
+        webllmEngine = await webllm.CreateMLCEngine("Qwen2.5-0.5B-Instruct-q4f32_1-MLC", {
+          initProgressCallback: (report) => {
+            console.log('[WebLLM Fallback]', report.text, report.progress);
+            updateProgress(report.text, report.progress);
+          }
+        });
+        isModelReady = true;
+        isModelLoading = false;
+        const banner = getBanner();
+        if (banner) {
+          banner.style.background = 'rgba(52, 211, 153, 0.12)';
+          banner.style.borderColor = 'rgba(52, 211, 153, 0.4)';
+          banner.innerHTML = `
+            <div style="display:flex;align-items:center;gap:8px;color:var(--emerald-400);font-weight:600;font-size:0.82rem;">
+              <span>🟢</span>
+              <span>Qwen 2.5 0.5B Active (WebGPU FP32 Engine Ready & Cached)</span>
+            </div>
+          `;
+        }
+      } catch (err2) {
+        console.warn('WebGPU not supported on this device/browser:', err2);
+        isModelLoading = false;
+        isModelReady = false;
+        const banner = getBanner();
+        if (banner) {
+          banner.style.background = 'rgba(251, 191, 36, 0.08)';
+          banner.style.borderColor = 'rgba(251, 191, 36, 0.3)';
+          banner.innerHTML = `
+            <div style="display:flex;align-items:center;gap:8px;color:var(--amber-400);font-size:0.78rem;">
+              <span>💡</span>
+              <span>Native Phase Attention Active (WebGPU not detected in this browser)</span>
+            </div>
+          `;
+        }
       }
     }
   }
