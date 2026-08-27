@@ -95,6 +95,15 @@
 
         <div class="header-stats">
           <div style="display:flex;align-items:center;gap:8px;">
+            <label style="font-size:0.78rem;color:var(--text-muted);font-family:var(--font-mono);">Model:</label>
+            <select id="modelSelector" style="background:rgba(255,255,255,0.06);color:#fff;border:1px solid var(--border-subtle);border-radius:6px;padding:4px 8px;font-family:var(--font-mono);font-size:0.8rem;outline:none;cursor:pointer;">
+              <option value="SmolLM2-135M-Instruct-q0f16-MLC" selected>⚡ SmolLM2 135M (~75 MB - Ultra Fast)</option>
+              <option value="SmolLM2-360M-Instruct-q4f16_1-MLC">🚀 SmolLM2 360M (~140 MB - Balanced)</option>
+              <option value="Qwen2.5-0.5B-Instruct-q4f16_1-MLC">🧠 Qwen 2.5 0.5B (~450 MB - Full)</option>
+            </select>
+          </div>
+
+          <div style="display:flex;align-items:center;gap:8px;">
             <label style="font-size:0.78rem;color:var(--text-muted);font-family:var(--font-mono);">Bands:</label>
             <select id="bandSelector" style="background:rgba(255,255,255,0.06);color:#fff;border:1px solid var(--border-subtle);border-radius:6px;padding:4px 8px;font-family:var(--font-mono);font-size:0.8rem;outline:none;cursor:pointer;">
               <option value="2048" selected>2048 Bands (49.15 MB)</option>

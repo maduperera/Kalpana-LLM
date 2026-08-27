@@ -159,26 +159,31 @@ document.addEventListener('DOMContentLoaded', async () => {
     return null;
   }
 
-  // 7. Background WebLLM Qwen 2.5 0.5B Initializer with Visual Progress Bar
-  async function initWebLLMEngine() {
+  // 7. Background WebLLM Ultra-Lightweight SmolLM2 / Qwen Initializer with Visual Progress Bar
+  let currentModelId = "SmolLM2-135M-Instruct-q0f16-MLC";
+
+  async function loadWebLLMModel(modelId = currentModelId) {
     const getBanner = () => document.getElementById('qwenLoadBanner');
 
     const updateProgress = (text, progress = 0) => {
       const banner = getBanner();
       if (!banner) return;
       const pct = Math.min(100, Math.max(0, Math.round((progress || 0) * 100)));
+      const approxMb = modelId.includes('135M') ? 75 : (modelId.includes('360M') ? 140 : 450);
+      const downloadedMb = Math.round((pct / 100) * approxMb);
+
       banner.innerHTML = `
         <div style="width:100%;">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;font-size:0.75rem;">
-            <span>⏳ <strong>${escapeHtml(text || 'Loading Qwen 2.5 0.5B...')}</strong></span>
+            <span>⚡ <strong>${escapeHtml(text || `Loading ${modelId}...`)}</strong></span>
             <span style="font-family:var(--font-mono);font-weight:700;color:var(--cyan-300);">${pct}%</span>
           </div>
           <div style="width:100%;height:6px;background:rgba(255,255,255,0.08);border-radius:99px;overflow:hidden;">
             <div style="width:${pct}%;height:100%;background:linear-gradient(90deg, var(--cyan-400), var(--emerald-400));transition:width 0.2s ease;box-shadow:0 0 8px rgba(56,189,248,0.5);"></div>
           </div>
           <div style="font-size:0.68rem;color:var(--text-muted);margin-top:4px;display:flex;justify-content:space-between;">
-            <span>${pct < 100 ? `${Math.round(pct * 4.5)} MB / ~450 MB (Saved permanently in browser storage)` : 'Compiling WebGPU shaders...'}</span>
-            <span>One-time download</span>
+            <span>${pct < 100 ? `${downloadedMb} MB / ~${approxMb} MB (SmolLM2 Ultra-Lightweight)` : 'Compiling WebGPU shaders...'}</span>
+            <span>Instant cached boot</span>
           </div>
         </div>
       `;
@@ -186,23 +191,22 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     try {
       isModelLoading = true;
-      updateProgress('Connecting to Hugging Face CDN...', 0.05);
+      isModelReady = false;
+      currentModelId = modelId;
+      updateProgress(`Connecting Hugging Face CDN for ${modelId}...`, 0.05);
 
-      // Dynamic import of WebLLM ESM
       const webllm = await import("https://esm.run/@mlc-ai/web-llm");
 
-      const selectedModel = "Qwen2.5-0.5B-Instruct-q4f16_1-MLC";
-
-      webllmEngine = await webllm.CreateMLCEngine(selectedModel, {
+      webllmEngine = await webllm.CreateMLCEngine(modelId, {
         initProgressCallback: (report) => {
-          console.log('[WebLLM]', report.text, report.progress);
+          console.log('[WebLLM SmolLM]', report.text, report.progress);
           updateProgress(report.text, report.progress);
         }
       });
 
       isModelReady = true;
       isModelLoading = false;
-      console.log('🟢 Qwen2.5-0.5B WebGPU Engine is READY!');
+      console.log(`🟢 ${modelId} WebGPU Engine is READY!`);
 
       const banner = getBanner();
       if (banner) {
@@ -211,21 +215,21 @@ document.addEventListener('DOMContentLoaded', async () => {
         banner.innerHTML = `
           <div style="display:flex;align-items:center;gap:8px;color:var(--emerald-400);font-weight:600;font-size:0.82rem;">
             <span>🟢</span>
-            <span>Qwen 2.5 0.5B Active (WebGPU Neural Engine Ready & Cached)</span>
+            <span>${modelId.split('-')[0]} ${modelId.split('-')[1]} Active (WebGPU Neural Engine Ready & Cached)</span>
           </div>
         `;
       }
 
-      showToast('success', 'Qwen 2.5 Ready', 'Qwen2.5-0.5B neural model active in WebGPU!');
+      showToast('success', 'SmolLM Ready', `${modelId.split('-')[0]} active in WebGPU!`);
     } catch (err) {
-      console.warn('q4f16_1 failed, trying q4f32_1 fallback:', err);
-      // Fallback to q4f32_1 for GPUs without native f16 shader support
+      console.warn('SmolLM q0f16 failed, trying q0f32 fallback:', err);
+      // Fallback to q0f32 for GPUs without f16
       try {
+        const fallbackId = modelId.replace('q0f16', 'q0f32').replace('q4f16_1', 'q4f32_1');
         updateProgress('Switching to universal FP32 shader mode...', 0.1);
         const webllm = await import("https://esm.run/@mlc-ai/web-llm");
-        webllmEngine = await webllm.CreateMLCEngine("Qwen2.5-0.5B-Instruct-q4f32_1-MLC", {
+        webllmEngine = await webllm.CreateMLCEngine(fallbackId, {
           initProgressCallback: (report) => {
-            console.log('[WebLLM Fallback]', report.text, report.progress);
             updateProgress(report.text, report.progress);
           }
         });
@@ -238,7 +242,7 @@ document.addEventListener('DOMContentLoaded', async () => {
           banner.innerHTML = `
             <div style="display:flex;align-items:center;gap:8px;color:var(--emerald-400);font-weight:600;font-size:0.82rem;">
               <span>🟢</span>
-              <span>Qwen 2.5 0.5B Active (WebGPU FP32 Engine Ready & Cached)</span>
+              <span>${modelId.split('-')[0]} Active (Universal FP32 Engine Ready)</span>
             </div>
           `;
         }
@@ -261,8 +265,17 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   }
 
-  // Start WebLLM in the background without blocking the UI
-  initWebLLMEngine();
+  // Model Selector in Header
+  const modelSelect = document.getElementById('modelSelector');
+  if (modelSelect) {
+    modelSelect.addEventListener('change', (e) => {
+      const selected = e.target.value;
+      loadWebLLMModel(selected);
+    });
+  }
+
+  // Start with lightweight SmolLM2 135M (~75MB)
+  loadWebLLMModel("SmolLM2-135M-Instruct-q0f16-MLC");
 
   // 8. Holographic Chat Interface
   const chatInput = document.getElementById('chatInput');
