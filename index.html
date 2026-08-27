@@ -23,7 +23,7 @@
   <link rel="apple-touch-icon" sizes="192x192" href="assets/icon-192.png">
 
   <!-- Stylesheet -->
-  <link rel="stylesheet" href="style.css?v=4.1.0">
+  <link rel="stylesheet" href="style.css?v=4.2.0">
 </head>
 <body>
 
@@ -41,11 +41,7 @@
       <nav class="nav-menu">
         <a href="#chat" class="nav-item active" data-tab="chat">
           <span class="nav-icon">💬</span>
-          <span>Phase Attention Chat</span>
-        </a>
-        <a href="#benchmark" class="nav-item" data-tab="benchmark">
-          <span class="nav-icon">🧪</span>
-          <span>3M Token Benchmark</span>
+          <span>Phase Chat</span>
         </a>
         <a href="#packs" class="nav-item" data-tab="packs">
           <span class="nav-icon">📦</span>
@@ -124,11 +120,37 @@
               </div>
             </div>
 
-            <!-- Modern ChatGPT-Style Input Bar -->
+            <!-- Modern ChatGPT-Style Input Bar with Attachments, Voice & Readout -->
             <div class="chat-input-wrapper">
+              <input type="file" id="chatAttachmentInput" style="display:none;" accept=".txt,.pdf,.md,.json,.csv,.py,.js,.html">
+              
+              <!-- Attached File Preview Chip -->
+              <div id="attachedFileChip" class="attached-chip" style="display:none;">
+                <span id="attachedFileName">📎 document.txt</span>
+                <button id="removeAttachmentBtn" class="btn-remove-chip">✕</button>
+              </div>
+
               <div class="chat-input-bar">
-                <input type="text" id="chatInput" class="input-field" placeholder="Ask anything (e.g. 'what is tennis', 'who is thomas edison')..." autocomplete="off">
-                <button id="chatSendBtn" class="btn-primary" aria-label="Send message">
+                <!-- Attach Button -->
+                <button id="chatAttachBtn" class="prompt-icon-btn" type="button" title="Attach Document (TXT, PDF, Code)">
+                  <span>📎</span>
+                </button>
+
+                <!-- Chat Input Field -->
+                <input type="text" id="chatInput" class="input-field" placeholder="Ask anything, attach files, or use voice..." autocomplete="off">
+                
+                <!-- Voice Input Button -->
+                <button id="chatVoiceBtn" class="prompt-icon-btn" type="button" title="Voice Input (Speech-to-Text)">
+                  <span>🎙️</span>
+                </button>
+
+                <!-- Read Out (Text-to-Speech) Toggle Button (OFF by default) -->
+                <button id="chatReadoutBtn" class="prompt-icon-btn" type="button" title="Voice Read Out (Currently OFF)">
+                  <span id="readoutIcon">🔇</span>
+                </button>
+
+                <!-- Send Button -->
+                <button id="chatSendBtn" class="btn-primary" type="button" aria-label="Send message">
                   <span>Send</span>
                   <span>🚀</span>
                 </button>
@@ -201,87 +223,80 @@
 
         </section>
 
-        <!-- TAB 2: 3 Million Token Haystack Benchmark -->
-        <section id="tab-benchmark" class="tab-pane">
-          <div class="card" style="margin-bottom:24px;">
-            <div class="card-header">
-              <h3 class="card-title">
-                <span>🧪</span>
-                <span>3,000,000 Token Browser Memory Benchmark Simulator</span>
-              </h3>
-              <span class="badge badge-fuchsia">SCALING LAWS VALIDATION</span>
-            </div>
-
-            <p style="color:var(--text-secondary);margin-bottom:20px;font-size:0.92rem;">
-              Watch Kalpanā stream <strong>3,000,000 tokens</strong> directly into client browser memory. In standard transformers, a 3M-token KV cache requires <strong>36.86 GB</strong> of VRAM and immediately crashes the browser. With Kalpanā Phase Attention, memory strictly <strong>flatlines at 49.15 MB</strong> (2048 bands).
-            </p>
-
-            <div style="margin-bottom:20px;">
-              <div style="display:flex;justify-content:space-between;margin-bottom:8px;font-family:var(--font-mono);font-size:0.84rem;">
-                <span id="benchmarkStatusText">Ready to launch 3M token benchmark</span>
-                <span id="benchThroughput">0 tok/s</span>
-              </div>
-              <div class="meter-bar-container" style="height:12px;">
-                <div id="benchProgressBar" class="meter-bar-fill fill-cyan" style="width:0%;"></div>
-              </div>
-            </div>
-
-            <div style="display:flex;gap:14px;align-items:center;margin-bottom:24px;">
-              <button id="startBenchmarkBtn" class="btn-primary" style="padding:14px 28px;font-size:1rem;">
-                <span>🚀</span>
-                <span>Launch 3M Token Ingestion</span>
-              </button>
-            </div>
-
-            <!-- Comparison Cards -->
-            <div class="grid-3">
-              <div class="card" style="background:rgba(52, 211, 153, 0.06);border-color:rgba(52, 211, 153, 0.3);">
-                <div style="font-size:0.8rem;color:var(--emerald-400);font-weight:600;margin-bottom:6px;">🟢 KALPANĀ RIF STATE (2048 BANDS)</div>
-                <div id="benchKalpanaMem" style="font-size:1.8rem;font-weight:800;font-family:var(--font-heading);color:#fff;">49.15 MB</div>
-                <div style="font-size:0.75rem;color:var(--text-muted);margin-top:4px;">Strictly constant O(1) across 3M tokens</div>
-              </div>
-
-              <div class="card" style="background:rgba(244, 63, 94, 0.06);border-color:rgba(244, 63, 94, 0.3);">
-                <div style="font-size:0.8rem;color:var(--rose-400);font-weight:600;margin-bottom:6px;">🔴 STANDARD TRANSFORMER KV</div>
-                <div id="benchStdKvMem" style="font-size:1.8rem;font-weight:800;font-family:var(--font-heading);color:#fff;">36.86 GB</div>
-                <div style="font-size:0.75rem;color:var(--text-muted);margin-top:4px;">O(N) Linear explosion (Browser OOM Crash)</div>
-              </div>
-
-              <div class="card" style="background:rgba(56, 189, 248, 0.06);border-color:rgba(56, 189, 248, 0.3);">
-                <div style="font-size:0.8rem;color:var(--cyan-400);font-weight:600;margin-bottom:6px;">⚡ ACTIVE TOKENS INGESTED</div>
-                <div id="benchTokenCount" style="font-size:1.8rem;font-weight:800;font-family:var(--font-heading);color:#fff;">0</div>
-                <div style="font-size:0.75rem;color:var(--text-muted);margin-top:4px;">Sub-millisecond associative recall</div>
-              </div>
-            </div>
-
-          </div>
-        </section>
-
-        <!-- TAB 3: Knowledge Packs (.kp) Manager -->
-        <section id="tab-packs" class="tab-pane">
-          <div class="grid-2">
+        <!-- TAB 2: Mobile-Optimized Knowledge Packs (.kp) Manager -->
+        <section id="tab-packs" class="tab-pane" style="display:none;">
+          <div style="max-width:860px;margin:0 auto;width:100%;">
             
-            <!-- Ingest & Create Card -->
-            <div class="card">
+            <!-- Tab Heading -->
+            <div style="margin-bottom:20px;">
+              <h2 style="font-family:var(--font-heading);font-size:1.4rem;font-weight:700;color:#fff;margin-bottom:6px;">📦 Knowledge Packs & Document Ingestion</h2>
+              <p style="color:var(--text-secondary);font-size:0.88rem;">Ingest documents, research papers, and books directly into the 2048-band continuous Fourier phase field with zero memory expansion.</p>
+            </div>
+
+            <!-- Ingest & Upload Card -->
+            <div class="card" style="margin-bottom:20px;">
               <div class="card-header">
                 <h3 class="card-title">
                   <span>📥</span>
-                  <span>Ingest Documents & Knowledge</span>
+                  <span>Ingest New Content</span>
                 </h3>
-                <span class="badge badge-cyan">OFFLINE COMPILER</span>
+                <span class="badge badge-cyan">2048 BANDS</span>
               </div>
 
               <div style="margin-bottom:14px;">
-                <label style="display:block;font-size:0.8rem;color:var(--text-muted);margin-bottom:6px;">Paste text or document excerpts directly:</label>
-                <textarea id="quickIngestText" class="input-field" rows="4" style="width:100%;resize:none;" placeholder="Paste text, meeting transcripts, or code to compile into holographic memory..."></textarea>
+                <label style="display:block;font-size:0.8rem;color:var(--text-muted);margin-bottom:6px;">Document Title / Label:</label>
+                <input type="text" id="packDocTitle" class="input-field" placeholder="e.g. Quantum Physics Lecture Notes" style="width:100%;margin-bottom:12px;height:42px;">
+                
+                <label style="display:block;font-size:0.8rem;color:var(--text-muted);margin-bottom:6px;">Paste Text or Document Content:</label>
+                <textarea id="quickIngestText" class="input-field" rows="4" style="width:100%;resize:none;font-size:0.9rem;" placeholder="Paste research notes, transcripts, or code to encode into holographic phase memory..."></textarea>
               </div>
 
-              <div style="display:flex;gap:10px;">
-                <button id="quickIngestBtn" class="btn-primary" style="flex:1;">
+              <div style="display:flex;gap:10px;flex-wrap:wrap;">
+                <button id="quickIngestBtn" class="btn-primary" style="flex:1;min-width:180px;height:44px;">
                   <span>⚡ Ingest into Hologram</span>
                 </button>
-                <button id="exportKpBtn" class="btn-secondary">
+                <button id="fileUploadBtn" class="btn-secondary" style="height:44px;">
+                  <span>📁 Upload File</span>
+                </button>
+                <input type="file" id="packFileInput" style="display:none;" accept=".txt,.pdf,.md,.json,.csv,.py,.js">
+                <button id="exportKpBtn" class="btn-secondary" style="height:44px;">
                   <span>💾 Export .kp File</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- Quick Pre-Loaded Knowledge Packs -->
+            <div class="card" style="margin-bottom:20px;">
+              <div class="card-header">
+                <h3 class="card-title">
+                  <span>⚡</span>
+                  <span>One-Click Knowledge Packs</span>
+                </h3>
+                <span class="badge badge-emerald">PRE-INDEXED</span>
+              </div>
+              <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(200px, 1fr));gap:10px;margin-top:8px;">
+                <button class="btn-secondary preset-pack-btn" data-pack="physics" style="padding:12px;text-align:left;display:flex;align-items:center;gap:10px;">
+                  <span style="font-size:1.3rem;">⚛️</span>
+                  <div>
+                    <div style="font-weight:600;font-size:0.85rem;color:#fff;">Physics & Quantum</div>
+                    <div style="font-size:0.72rem;color:var(--text-muted);">Schrödinger & Relativity</div>
+                  </div>
+                </button>
+
+                <button class="btn-secondary preset-pack-btn" data-pack="ai" style="padding:12px;text-align:left;display:flex;align-items:center;gap:10px;">
+                  <span style="font-size:1.3rem;">🧠</span>
+                  <div>
+                    <div style="font-weight:600;font-size:0.85rem;color:#fff;">AI & Transformers</div>
+                    <div style="font-size:0.72rem;color:var(--text-muted);">RIF Attention Architecture</div>
+                  </div>
+                </button>
+
+                <button class="btn-secondary preset-pack-btn" data-pack="inventions" style="padding:12px;text-align:left;display:flex;align-items:center;gap:10px;">
+                  <span style="font-size:1.3rem;">💡</span>
+                  <div>
+                    <div style="font-weight:600;font-size:0.85rem;color:#fff;">Famous Inventors</div>
+                    <div style="font-size:0.72rem;color:var(--text-muted);">Edison, Tesla, Turing</div>
+                  </div>
                 </button>
               </div>
             </div>
@@ -293,87 +308,88 @@
                   <span>🗂️</span>
                   <span>Active Holographic Documents</span>
                 </h3>
-                <span class="badge badge-emerald">ZERO MEMORY GROWTH</span>
+                <span class="badge badge-emerald" id="activeDocCountBadge">0 DOCS</span>
               </div>
 
-              <div id="activeDocsList" style="max-height:360px;overflow-y:auto;">
-                <div style="color:var(--text-muted);font-size:0.85rem;padding:12px;">No documents ingested yet. Paste text or run the 3M benchmark above.</div>
+              <div id="activeDocsList" style="max-height:360px;overflow-y:auto;display:flex;flex-direction:column;gap:8px;padding-top:8px;">
+                <div style="color:var(--text-muted);font-size:0.85rem;padding:12px;text-align:center;">No documents ingested yet. Upload files or select a pre-loaded pack above.</div>
               </div>
             </div>
 
           </div>
         </section>
 
-        <!-- TAB 4: Real-Time Phase Spectrum & Telemetry -->
-        <section id="tab-telemetry" class="tab-pane">
-          <div class="card" style="margin-bottom:24px;">
-            <div class="card-header">
-              <h3 class="card-title">
-                <span>🎛️</span>
-                <span>Live Fourier Phase Spectrum Visualizer (2048 Bands)</span>
-              </h3>
-              <span class="badge badge-emerald">60 FPS WEBGL / 2D KERNEL</span>
-            </div>
-
-            <p style="color:var(--text-secondary);font-size:0.88rem;margin-bottom:16px;">
-              Real-time representation of the holographic phase interference field across harmonic frequencies $\omega_1 \dots \omega_{2048}$.
-            </p>
-
-            <div style="width:100%;height:260px;background:rgba(6,10,22,0.9);border:1px solid var(--border-subtle);border-radius:12px;overflow:hidden;margin-bottom:16px;">
-              <canvas id="phaseSpectrumCanvas" style="width:100%;height:100%;display:block;"></canvas>
-            </div>
-          </div>
-
-          <!-- Mathematical Diligence -->
-          <div class="card">
-            <div class="card-header">
-              <h3 class="card-title">
-                <span>📐</span>
-                <span>Mathematical Proof & Scaling Laws</span>
-              </h3>
-            </div>
+        <!-- TAB 3: Real-Time Phase Spectrum & Telemetry -->
+        <section id="tab-telemetry" class="tab-pane" style="display:none;">
+          <div style="max-width:860px;margin:0 auto;width:100%;">
             
-            <table class="telemetry-table">
-              <thead>
-                <tr>
-                  <th>Sequence Length</th>
-                  <th>Standard KV Cache (FP16)</th>
-                  <th>Kalpanā RIF State (2048 Bands)</th>
-                  <th>Memory Reduction</th>
-                  <th>Browser Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr>
-                  <td><strong>1,000 tokens</strong></td>
-                  <td>12.28 MB</td>
-                  <td><strong>49.15 MB</strong></td>
-                  <td>1.0x</td>
-                  <td><span class="badge badge-emerald">Smooth</span></td>
-                </tr>
-                <tr>
-                  <td><strong>100,000 tokens</strong></td>
-                  <td>1.23 GB</td>
-                  <td><strong>49.15 MB</strong></td>
-                  <td>25x Savings</td>
-                  <td><span class="badge badge-emerald">Smooth</span></td>
-                </tr>
-                <tr>
-                  <td><strong>1,000,000 tokens</strong></td>
-                  <td>12.28 GB</td>
-                  <td><strong>49.15 MB</strong></td>
-                  <td>250x Savings</td>
-                  <td><span class="badge badge-cyan">100% Offline Stable</span></td>
-                </tr>
-                <tr style="background:rgba(52, 211, 153, 0.05);">
-                  <td><strong>3,000,000 tokens</strong></td>
-                  <td style="color:var(--rose-400);">36.86 GB (CRASH)</td>
-                  <td><strong style="color:var(--emerald-400);">49.15 MB FLATLINE</strong></td>
-                  <td><strong style="color:var(--emerald-400);">750x Savings</strong></td>
-                  <td><span class="badge badge-emerald">100% Offline PWA Ready</span></td>
-                </tr>
-              </tbody>
-            </table>
+            <div class="card" style="margin-bottom:24px;">
+              <div class="card-header">
+                <h3 class="card-title">
+                  <span>🎛️</span>
+                  <span>Live Fourier Phase Spectrum Visualizer (2048 Bands)</span>
+                </h3>
+                <span class="badge badge-emerald">60 FPS WEBGL / 2D KERNEL</span>
+              </div>
+
+              <p style="color:var(--text-secondary);font-size:0.88rem;margin-bottom:16px;">
+                Real-time representation of the holographic phase interference field across harmonic frequencies $\omega_1 \dots \omega_{2048}$.
+              </p>
+
+              <div style="width:100%;height:260px;background:rgba(6,10,22,0.9);border:1px solid var(--border-subtle);border-radius:12px;overflow:hidden;margin-bottom:16px;">
+                <canvas id="phaseSpectrumCanvas" style="width:100%;height:100%;display:block;"></canvas>
+              </div>
+            </div>
+
+            <!-- Mathematical Diligence -->
+            <div class="card">
+              <div class="card-header">
+                <h3 class="card-title">
+                  <span>📐</span>
+                  <span>Mathematical Proof & Scaling Laws</span>
+                </h3>
+              </div>
+              
+              <div style="overflow-x:auto;">
+                <table class="telemetry-table" style="width:100%;min-width:480px;">
+                  <thead>
+                    <tr>
+                      <th>Sequence Length</th>
+                      <th>Standard KV (FP16)</th>
+                      <th>Kalpanā RIF State</th>
+                      <th>Savings</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td><strong>1,000 tokens</strong></td>
+                      <td>12.28 MB</td>
+                      <td><strong>49.15 MB</strong></td>
+                      <td>1.0x</td>
+                    </tr>
+                    <tr>
+                      <td><strong>100,000 tokens</strong></td>
+                      <td>1.23 GB</td>
+                      <td><strong>49.15 MB</strong></td>
+                      <td>25x</td>
+                    </tr>
+                    <tr>
+                      <td><strong>1,000,000 tokens</strong></td>
+                      <td>12.28 GB</td>
+                      <td><strong>49.15 MB</strong></td>
+                      <td>250x</td>
+                    </tr>
+                    <tr style="background:rgba(52, 211, 153, 0.08);">
+                      <td><strong>3,000,000 tokens</strong></td>
+                      <td style="color:var(--rose-400);">36.86 GB (CRASH)</td>
+                      <td><strong style="color:var(--emerald-400);">49.15 MB</strong></td>
+                      <td><strong style="color:var(--emerald-400);">750x</strong></td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
           </div>
         </section>
 
@@ -386,8 +402,8 @@
   <div id="toastContainer"></div>
 
   <!-- Scripts -->
-  <script src="kalpana-phase-kernel.js?v=4.1.0"></script>
-  <script src="spectrum-visualizer.js?v=4.1.0"></script>
-  <script type="module" src="app.js?v=4.1.0"></script>
+  <script src="kalpana-phase-kernel.js?v=4.2.0"></script>
+  <script src="spectrum-visualizer.js?v=4.2.0"></script>
+  <script type="module" src="app.js?v=4.2.0"></script>
 </body>
 </html>

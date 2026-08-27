@@ -475,6 +475,7 @@ document.addEventListener('DOMContentLoaded', async () => {
           <span style="color:var(--cyan-400)">🧠 SmolLM2-360M (WebGPU)</span>
         `;
         assistantBubble.appendChild(metaDiv);
+        speakAssistantText(fullResponse);
         return;
       } catch (err) {
         console.warn('SmolLM2 generation error, using native knowledge fallback:', err);
@@ -507,6 +508,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         latency: totalLatency,
         isSmolLM: false
       });
+      speakAssistantText(responseText);
       updateLiveTelemetryHeader(null, false);
     }, 60);
   }
@@ -521,84 +523,202 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   }
 
-  // 9. 3 Million Token Haystack Benchmark Runner
-  const startBenchmarkBtn = document.getElementById('startBenchmarkBtn');
-  const injectNeedleBtn = document.getElementById('injectNeedleBtn');
-  const queryNeedleBtn = document.getElementById('queryNeedleBtn');
-  const benchmarkStatus = document.getElementById('benchmarkStatusText');
-  const benchProgressBar = document.getElementById('benchProgressBar');
-  const benchKalpanaMem = document.getElementById('benchKalpanaMem');
-  const benchStdKvMem = document.getElementById('benchStdKvMem');
-  const benchTokenCount = document.getElementById('benchTokenCount');
-  const benchThroughput = document.getElementById('benchThroughput');
+  // 8. Voice Recognition (Speech-to-Text) & Voice Read Out (Text-to-Speech)
+  let isReadoutEnabled = false; // Strictly OFF by default
+  let isRecordingVoice = false;
+  let recognition = null;
 
-  if (startBenchmarkBtn) {
-    startBenchmarkBtn.addEventListener('click', async () => {
-      if (isBenchmarking) return;
-      isBenchmarking = true;
-      startBenchmarkBtn.disabled = true;
-      startBenchmarkBtn.textContent = '⏳ Ingesting 3,000,000 Tokens...';
-      showToast('info', 'Benchmark Started', 'Streaming 3M synthetic tokens into browser holographic cache...');
+  const chatVoiceBtn = document.getElementById('chatVoiceBtn');
+  const chatReadoutBtn = document.getElementById('chatReadoutBtn');
+  const readoutIcon = document.getElementById('readoutIcon');
+  const chatAttachBtn = document.getElementById('chatAttachBtn');
+  const chatAttachmentInput = document.getElementById('chatAttachmentInput');
+  const attachedFileChip = document.getElementById('attachedFileChip');
+  const attachedFileName = document.getElementById('attachedFileName');
+  const removeAttachmentBtn = document.getElementById('removeAttachmentBtn');
 
-      await kernel.simulate3MillionTokens((prog) => {
-        if (benchProgressBar) benchProgressBar.style.width = `${prog.percent}%`;
-        if (benchKalpanaMem) benchKalpanaMem.textContent = `${prog.memoryMb} MB`;
-        if (benchStdKvMem) benchStdKvMem.textContent = `${prog.standardKvGb} GB`;
-        if (benchTokenCount) benchTokenCount.textContent = prog.tokens.toLocaleString();
-        if (benchThroughput) benchThroughput.textContent = `${prog.throughput} tok/s`;
-        if (benchmarkStatus) benchmarkStatus.textContent = `Ingesting: ${prog.tokens.toLocaleString()} / 3,000,000 (${prog.percent}%)`;
-      });
-
-      isBenchmarking = false;
-      startBenchmarkBtn.disabled = false;
-      startBenchmarkBtn.textContent = '🚀 Re-Run 3M Benchmark';
-      if (benchmarkStatus) benchmarkStatus.textContent = `✅ 3,000,000 Tokens Cached (Memory Flatlined at ${kernel.getMemoryUsageMB()} MB vs 36.86 GB Standard)`;
-      showToast('success', 'Benchmark Complete', `3,000,000 tokens successfully ingested into browser cache with strictly O(1) memory!`);
-    });
-  }
-
-  // Inject Needle
-  if (injectNeedleBtn) {
-    injectNeedleBtn.addEventListener('click', () => {
-      const key = "PROJECT_ORION_V4";
-      const secret = "KALPANA_PHASE_99381_OMEGA";
-      kernel.injectNeedle(key, secret, kernel.totalTokensIngested);
-      showToast('success', 'Needle Injected', `Secret passkey injected into holographic field at index ${kernel.totalTokensIngested.toLocaleString()}!`);
-    });
-  }
-
-  // Query Needle
-  if (queryNeedleBtn) {
-    queryNeedleBtn.addEventListener('click', () => {
-      const query = "What is the passkey for PROJECT_ORION_V4?";
-      const res = kernel.queryHolographicMemory(query, 1);
-      if (res.matches && res.matches.length > 0 && res.matches[0].isNeedle) {
-        showToast('success', 'Associative Recall 100%!', `Found Secret: ${res.matches[0].secret} in ${res.latencyMs.toFixed(2)}ms!`);
-        appendChatMessage('assistant', `🎯 [ASSOCIATIVE RECALL SUCCESS]:\nNeedle Found: ${res.matches[0].fullText}\nLatency: ${res.latencyMs.toFixed(2)}ms across ${kernel.totalTokensIngested.toLocaleString()} tokens!`, {
-          latency: res.latencyMs.toFixed(2),
-          needleMatch: true
-        });
-      } else {
-        showToast('info', 'Needle Query', 'No needle detected. Try clicking "Inject Secret Needle" first!');
+  // Text-to-Speech Read Out Toggle
+  if (chatReadoutBtn) {
+    chatReadoutBtn.addEventListener('click', () => {
+      isReadoutEnabled = !isReadoutEnabled;
+      chatReadoutBtn.classList.toggle('readout-active', isReadoutEnabled);
+      if (readoutIcon) readoutIcon.textContent = isReadoutEnabled ? '🔊' : '🔇';
+      chatReadoutBtn.title = isReadoutEnabled ? 'Voice Read Out (Active)' : 'Voice Read Out (Currently OFF)';
+      
+      if (!isReadoutEnabled && window.speechSynthesis) {
+        window.speechSynthesis.cancel();
       }
+      showToast('info', isReadoutEnabled ? 'Read Out Enabled' : 'Read Out Muted', isReadoutEnabled ? 'Assistant will read answers out loud.' : 'Voice read out turned off.');
     });
   }
 
-  // 10. Knowledge Pack (.kp) Ingestion & Export
+  function speakAssistantText(rawText) {
+    if (!isReadoutEnabled || !('speechSynthesis' in window)) return;
+    window.speechSynthesis.cancel();
+    // Clean markdown symbols for natural speech
+    const cleanText = rawText
+      .replace(/[*#_`~>]/g, '')
+      .replace(/\[.*?\]\(.*?\)/g, '')
+      .slice(0, 1200);
+    const utterance = new SpeechSynthesisUtterance(cleanText);
+    utterance.rate = 1.05;
+    utterance.pitch = 1.0;
+    window.speechSynthesis.speak(utterance);
+  }
+
+  // Voice Input (Speech-to-Text)
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (chatVoiceBtn) {
+    if (SpeechRecognition) {
+      chatVoiceBtn.addEventListener('click', () => {
+        if (isRecordingVoice) {
+          if (recognition) recognition.stop();
+          return;
+        }
+
+        try {
+          recognition = new SpeechRecognition();
+          recognition.continuous = false;
+          recognition.interimResults = true;
+          recognition.lang = 'en-US';
+
+          recognition.onstart = () => {
+            isRecordingVoice = true;
+            chatVoiceBtn.classList.add('recording');
+            showToast('info', 'Listening...', 'Speak into your microphone.');
+          };
+
+          recognition.onresult = (event) => {
+            let transcript = '';
+            for (let i = 0; i < event.results.length; i++) {
+              transcript += event.results[i][0].transcript;
+            }
+            if (chatInput) chatInput.value = transcript;
+          };
+
+          recognition.onerror = (event) => {
+            console.warn('Speech recognition error:', event.error);
+            isRecordingVoice = false;
+            chatVoiceBtn.classList.remove('recording');
+          };
+
+          recognition.onend = () => {
+            isRecordingVoice = false;
+            chatVoiceBtn.classList.remove('recording');
+          };
+
+          recognition.start();
+        } catch (e) {
+          console.warn('Speech recognition launch failed:', e);
+          chatVoiceBtn.classList.remove('recording');
+        }
+      });
+    } else {
+      chatVoiceBtn.style.opacity = '0.5';
+      chatVoiceBtn.title = 'Voice input not supported in this browser';
+    }
+  }
+
+  // File Attachments Ingestion
+  if (chatAttachBtn && chatAttachmentInput) {
+    chatAttachBtn.addEventListener('click', () => {
+      chatAttachmentInput.click();
+    });
+
+    chatAttachmentInput.addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = (evt) => {
+        const textContent = evt.target.result;
+        const res = kernel.ingestText(textContent, file.name);
+        if (attachedFileChip && attachedFileName) {
+          attachedFileName.textContent = `📎 ${file.name} (${res.tokens.toLocaleString()} tokens)`;
+          attachedFileChip.style.display = 'inline-flex';
+        }
+        updateLiveTelemetryHeader();
+        renderDocumentList();
+        showToast('success', 'File Attached & Ingested', `Encoded "${file.name}" (${res.tokens} tok) into 2048-band phase memory in ${res.timeMs.toFixed(1)}ms.`);
+      };
+      reader.readAsText(file);
+    });
+  }
+
+  if (removeAttachmentBtn && attachedFileChip) {
+    removeAttachmentBtn.addEventListener('click', () => {
+      attachedFileChip.style.display = 'none';
+      if (chatAttachmentInput) chatAttachmentInput.value = '';
+    });
+  }
+
+  // 9. Knowledge Pack (.kp) Ingestion & Preset Handlers
   const exportKpBtn = document.getElementById('exportKpBtn');
   const quickIngestBtn = document.getElementById('quickIngestBtn');
   const quickIngestText = document.getElementById('quickIngestText');
+  const packDocTitle = document.getElementById('packDocTitle');
+  const fileUploadBtn = document.getElementById('fileUploadBtn');
+  const packFileInput = document.getElementById('packFileInput');
+
+  if (fileUploadBtn && packFileInput) {
+    fileUploadBtn.addEventListener('click', () => packFileInput.click());
+    packFileInput.addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = (evt) => {
+        const text = evt.target.result;
+        const res = kernel.ingestText(text, file.name);
+        renderDocumentList();
+        updateLiveTelemetryHeader();
+        showToast('success', 'Document Ingested', `Ingested "${file.name}" (${res.tokens} tokens) into holographic field.`);
+      };
+      reader.readAsText(file);
+    });
+  }
 
   if (quickIngestBtn && quickIngestText) {
     quickIngestBtn.addEventListener('click', () => {
       const text = quickIngestText.value.trim();
       if (!text) return;
-      const res = kernel.ingestText(text, "Document " + (kernel.documents.length + 1));
+      const title = (packDocTitle && packDocTitle.value.trim()) || ("Document " + (kernel.documents.length + 1));
+      const res = kernel.ingestText(text, title);
       quickIngestText.value = '';
-      showToast('success', 'Ingested!', `Added ${res.tokens} tokens into holographic memory in ${res.timeMs.toFixed(1)}ms`);
+      if (packDocTitle) packDocTitle.value = '';
+      showToast('success', 'Ingested!', `Added ${res.tokens} tokens into holographic memory in ${res.timeMs.toFixed(1)}ms.`);
       renderDocumentList();
+      updateLiveTelemetryHeader();
     });
   }
+
+  // Preset Knowledge Packs
+  const PRESET_PACKS = {
+    physics: {
+      title: "⚛️ Quantum Physics & Relativity Pack",
+      text: "Quantum mechanics principles: The Schrödinger wave equation governs quantum wavefunctions with complex amplitudes. In wave mechanics, constructive interference amplifies state probabilities while destructive interference suppresses them. General Relativity defines spacetime curvature through Einstein field equations. Holographic Principle states that the information content of a volume of space can be described by a boundary theory on its surface."
+    },
+    ai: {
+      title: "🧠 Transformers vs RIF Phase Attention",
+      text: "Standard Transformers rely on discrete O(N) Key-Value (KV) cache storage, causing memory explosion (36.86 GB at 3M tokens) and quadratic latency. Kalpanā Resonant Interference Field (RIF) replaces discrete memory with continuous Fourier phase fields across 2048 harmonic bands, maintaining strictly O(1) constant 49.15 MB memory across infinite context lengths."
+    },
+    inventions: {
+      title: "💡 Legendary Inventors & Breakthroughs",
+      text: "Thomas Alva Edison developed the phonograph, motion picture camera, and long-lasting electric incandescent light bulb. Nikola Tesla pioneered alternating current (AC) electricity, polyphase power distribution, and the Tesla coil. Alan Turing formalized theoretical computation and artificial intelligence with the Turing machine."
+    }
+  };
+
+  document.querySelectorAll('.preset-pack-btn').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const packKey = btn.getAttribute('data-pack');
+      const pack = PRESET_PACKS[packKey];
+      if (pack) {
+        const res = kernel.ingestText(pack.text, pack.title);
+        renderDocumentList();
+        updateLiveTelemetryHeader();
+        showToast('success', 'Knowledge Pack Ingested', `Ingested "${pack.title}" (${res.tokens} tokens) into holographic field.`);
+      }
+    });
+  });
 
   if (exportKpBtn) {
     exportKpBtn.addEventListener('click', () => {
@@ -615,52 +735,76 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   function renderDocumentList() {
     const listEl = document.getElementById('activeDocsList');
+    const badgeEl = document.getElementById('activeDocCountBadge');
+    if (badgeEl) badgeEl.textContent = `${kernel.documents.length} DOCS`;
     if (!listEl) return;
     if (kernel.documents.length === 0) {
-      listEl.innerHTML = '<div style="color:var(--text-muted);font-size:0.85rem;padding:12px;">No documents ingested yet.</div>';
+      listEl.innerHTML = '<div style="color:var(--text-muted);font-size:0.85rem;padding:12px;text-align:center;">No documents ingested yet. Upload files or select a pre-loaded pack above.</div>';
       return;
     }
 
     listEl.innerHTML = kernel.documents.map((doc) => `
-      <div style="background:rgba(255,255,255,0.03);border:1px solid var(--border-subtle);border-radius:8px;padding:10px 14px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;">
-        <div>
-          <div style="font-weight:600;font-size:0.88rem;color:#fff;">📄 ${escapeHtml(doc.title)}</div>
-          <div style="font-size:0.75rem;color:var(--text-muted);">${doc.tokenCount} tokens • ${escapeHtml(doc.sample)}</div>
+      <div style="background:rgba(255,255,255,0.03);border:1px solid var(--border-subtle);border-radius:10px;padding:12px 16px;display:flex;justify-content:space-between;align-items:center;gap:12px;">
+        <div style="flex:1;min-width:0;">
+          <div style="font-weight:600;font-size:0.88rem;color:#fff;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">📄 ${escapeHtml(doc.title)}</div>
+          <div style="font-size:0.75rem;color:var(--text-muted);margin-top:2px;">${doc.tokenCount} tokens • ${escapeHtml(doc.sample || '')}</div>
         </div>
-        <span class="badge badge-cyan">O(1) Cached</span>
+        <span class="badge badge-cyan" style="flex-shrink:0;">2048 Bands</span>
       </div>
     `).join('');
   }
 
-  // 11. PWA Service Worker & Tab System
-  if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('./sw.js')
-      .then((reg) => console.log('⚡ Kalpanā Service Worker registered:', reg.scope))
-      .catch((err) => console.warn('Service Worker registration skipped:', err));
-  }
-
+  // 10. Clean Tab Switching (Opens as dedicated screen on mobile and desktop)
   const navItems = document.querySelectorAll('.nav-item');
   const tabPanes = document.querySelectorAll('.tab-pane');
+
+  function switchTab(targetTab) {
+    activeTab = targetTab;
+
+    navItems.forEach((n) => {
+      if (n.getAttribute('data-tab') === targetTab) {
+        n.classList.add('active');
+      } else {
+        n.classList.remove('active');
+      }
+    });
+
+    tabPanes.forEach((p) => {
+      if (p.id === `tab-${targetTab}`) {
+        p.classList.add('active');
+        p.style.display = 'block';
+      } else {
+        p.classList.remove('active');
+        p.style.display = 'none';
+      }
+    });
+
+    // Automatically close mobile navigation drawer
+    if (sidebar) sidebar.classList.remove('mobile-open');
+    if (sidebarOverlay) sidebarOverlay.classList.remove('active');
+
+    // Scroll to top of the new active screen
+    window.scrollTo({ top: 0, behavior: 'instant' });
+
+    if (targetTab === 'telemetry' && visualizer) {
+      setTimeout(() => visualizer.resize(), 60);
+    }
+  }
 
   navItems.forEach((item) => {
     item.addEventListener('click', (e) => {
       e.preventDefault();
       const targetTab = item.getAttribute('data-tab');
-      if (!targetTab) return;
-
-      navItems.forEach((n) => n.classList.remove('active'));
-      tabPanes.forEach((p) => p.classList.remove('active'));
-
-      item.classList.add('active');
-      const pane = document.getElementById(`tab-${targetTab}`);
-      if (pane) pane.classList.add('active');
-      activeTab = targetTab;
-
-      if (targetTab === 'telemetry' && visualizer) {
-        setTimeout(() => visualizer.resize(), 50);
-      }
+      if (targetTab) switchTab(targetTab);
     });
   });
+
+  // 11. PWA Service Worker Registration
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('./sw.js')
+      .then((reg) => console.log('⚡ Kalpanā Service Worker registered:', reg.scope))
+      .catch((err) => console.warn('Service Worker registration skipped:', err));
+  }
 
   // Toast Helper
   function showToast(type, title, message) {
@@ -692,5 +836,5 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   window.showToast = showToast;
-  console.log('🚀 Kalpanā LLM PWA Ready with Qwen 2.5 0.5B WebGPU + 2048-Band RIF Phase Attention!');
+  console.log('🚀 Kalpanā LLM PWA Ready with SmolLM2 360M WebGPU + 2048-Band RIF Phase Attention!');
 });
