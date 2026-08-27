@@ -3,17 +3,17 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Kalpanā LLM | 100% Offline 3M-Token Browser Phase Attention PWA</title>
+  <title>Kalpanā LLM | Native O(1) Phase Attention Core</title>
   
   <!-- SEO & Social Meta Tags -->
-  <meta name="description" content="100% Offline 3M-Token Browser LLM Holographic Cache & Resonant Interference Field (RIF) Phase Attention PWA by Vijñāna AI.">
-  <meta name="keywords" content="Kalpana, LLM, Phase Attention, RIF, WebGPU, O(1) Memory, 3M Tokens, PWA, Offline AI">
+  <meta name="description" content="100% Offline 3M-Token Browser LLM — Native Kalpanā RIF Phase Attention Core with zero internal KV cache (strictly constant O(1) memory, 2048 harmonic bands).">
+  <meta name="keywords" content="Kalpana, LLM, Phase Attention, RIF, O(1) Memory, 3M Tokens, PWA, Offline AI, Zero KV Cache">
   <meta name="author" content="Vijñāna AI">
   <meta name="theme-color" content="#0a0f1d">
 
   <!-- Open Graph -->
-  <meta property="og:title" content="Kalpanā LLM | 3M Token Phase Attention PWA">
-  <meta property="og:description" content="100% Offline 3 Million Token LLM Holographic Cache & Phase Attention Engine running directly in the browser with strictly O(1) memory.">
+  <meta property="og:title" content="Kalpanā LLM | Native O(1) Phase Attention Core">
+  <meta property="og:description" content="100% Offline 3 Million Token LLM Phase Attention Core with zero internal KV cache. Strictly O(1) constant memory (49.15 MB).">
   <meta property="og:image" content="assets/icon-512.png">
   <meta property="og:type" content="website">
 
@@ -35,14 +35,14 @@
         <img src="assets/icon-192.png" alt="Kalpanā Logo" class="brand-logo">
         <div class="brand-info">
           <h1>Kalpanā LLM</h1>
-          <span class="brand-badge" id="currentBandsLabel">1024 Bands</span>
+          <span class="brand-badge" id="currentBandsLabel">2048 Bands</span>
         </div>
       </div>
 
       <nav class="nav-menu">
         <a href="#chat" class="nav-item active" data-tab="chat">
           <span class="nav-icon">💬</span>
-          <span>Holographic Chat</span>
+          <span>Phase Attention Chat</span>
         </a>
         <a href="#benchmark" class="nav-item" data-tab="benchmark">
           <span class="nav-icon">🧪</span>
@@ -57,6 +57,17 @@
           <span>Phase Spectrum</span>
         </a>
       </nav>
+
+      <!-- Architecture Specifications Sidebar Card -->
+      <div style="margin: 0 16px 16px; background: rgba(255,255,255,0.03); border: 1px solid var(--border-subtle); border-radius: 12px; padding: 12px 14px;">
+        <div style="font-size: 0.72rem; color: var(--text-muted); font-family: var(--font-mono); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.05em;">Attention Engine</div>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span style="width:8px;height:8px;border-radius:50%;background:#34d399;display:inline-block;box-shadow:0 0 8px #34d399;"></span>
+          <span style="font-size:0.82rem;font-weight:700;color:#34d399;">True O(1) Phase Attention</span>
+        </div>
+        <div style="font-size:0.72rem;color:var(--text-secondary);margin-top:6px;">Internal KV Cache: <strong style="color:var(--rose-400);">DISABLED (0 MB)</strong></div>
+        <div style="font-size:0.72rem;color:var(--text-secondary);">Harmonic Bands: <strong style="color:var(--cyan-400);">2048 Bands</strong></div>
+      </div>
 
       <div class="sidebar-footer">
         <div class="offline-pill">
@@ -79,21 +90,21 @@
       <!-- Sticky Header -->
       <header class="top-header">
         <div class="header-title">
-          <h2 id="currentTabHeading">Holographic Chat & Intelligence</h2>
+          <h2 id="currentTabHeading">Kalpanā LLM Phase Attention Core</h2>
         </div>
 
         <div class="header-stats">
           <div style="display:flex;align-items:center;gap:8px;">
             <label style="font-size:0.78rem;color:var(--text-muted);font-family:var(--font-mono);">Bands:</label>
             <select id="bandSelector" style="background:rgba(255,255,255,0.06);color:#fff;border:1px solid var(--border-subtle);border-radius:6px;padding:4px 8px;font-family:var(--font-mono);font-size:0.8rem;outline:none;cursor:pointer;">
-              <option value="1024" selected>1024 Bands (24.58 MB)</option>
-              <option value="2048">2048 Bands (49.15 MB)</option>
+              <option value="2048" selected>2048 Bands (49.15 MB)</option>
+              <option value="1024">1024 Bands (24.58 MB)</option>
             </select>
           </div>
 
           <div class="stat-chip">
-            <span class="label">RIF Cache:</span>
-            <span class="val" id="headerMemoryVal">24.58 MB</span>
+            <span class="label">RIF State:</span>
+            <span class="val" id="headerMemoryVal">49.15 MB</span>
           </div>
           <div class="stat-chip">
             <span class="label">Tokens:</span>
@@ -117,29 +128,31 @@
             <div class="card chat-window">
               <div class="card-header">
                 <h3 class="card-title">
-                  <span>💬</span>
-                  <span>Resonant Phase Attention & Assistant</span>
+                  <span>🧠</span>
+                  <span>Resonant Phase Attention & Intelligence</span>
                 </h3>
-                <span class="badge badge-emerald">ACTIVE CONTEXT: O(1) FLATLINE</span>
+                <span class="badge badge-emerald">ZERO KV CACHE: STRICT O(1)</span>
               </div>
 
               <div class="chat-messages" id="chatMessages">
                 <div class="chat-bubble assistant">
                   <div>
-                    ✨ <strong>Welcome to Kalpanā LLM!</strong> I am running 100% offline directly in your browser with full general intelligence and holographic memory.
+                    ✨ <strong>Welcome to Kalpanā LLM!</strong>
                     <br><br>
-                    • <strong>Ask me anything:</strong> General knowledge (e.g. <em>"What is cricket?"</em>, science, history, coding).<br>
-                    • <strong>Holographic Cache:</strong> Ingest documents or run the <strong>3M Token Benchmark</strong>, and I will recall facts across millions of tokens with zero memory growth (strictly flatlined at <strong>24.58 MB</strong>).
+                    This system runs the <strong>Native RIF Phase Attention Core</strong> (2048 Harmonic Bands). The internal discrete KV cache has been completely eliminated — every token projects directly into continuous Fourier wave states ($K_{re}, K_{im}, V_{re}, V_{im}$).
+                    <br><br>
+                    • <strong>Ask anything:</strong> General knowledge (e.g. <em>"What is cricket?"</em>, <em>"Who is Thomas Edison?"</em>, science, coding, history).<br>
+                    • <strong>Zero Memory Growth:</strong> Memory stays strictly flatlined at <strong>49.15 MB</strong> even across <strong>3,000,000+ tokens</strong>.
                   </div>
                   <div class="msg-meta">
                     <span>⚡ 0.1ms</span>
-                    <span>● Client WASM Blackbox Ready</span>
+                    <span>● 2048 Fourier Bands Active</span>
                   </div>
                 </div>
               </div>
 
               <div class="chat-input-bar">
-                <input type="text" id="chatInput" class="input-field" placeholder="Ask general questions (e.g. 'what is cricket') or query 3M-token cache..." autocomplete="off">
+                <input type="text" id="chatInput" class="input-field" placeholder="Ask general questions (e.g. 'what is cricket', 'who is thomas edison') or query 3M cache..." autocomplete="off">
                 <button id="chatSendBtn" class="btn-primary">
                   <span>Send</span>
                   <span>🚀</span>
@@ -162,16 +175,20 @@
                     <td><strong>Kalpanā RIF Phase Core</strong></td>
                   </tr>
                   <tr>
+                    <td>Internal KV Cache</td>
+                    <td><span class="badge badge-rose">0 MB (Eliminated)</span></td>
+                  </tr>
+                  <tr>
                     <td>Harmonic Bands</td>
-                    <td><span class="val" style="color:var(--cyan-400);">1,024 / 2,048 Bands</span></td>
+                    <td><span class="val" style="color:var(--cyan-400);">2,048 Bands</span></td>
+                  </tr>
+                  <tr>
+                    <td>State Memory</td>
+                    <td><strong style="color:var(--emerald-400);">49.15 MB Constant</strong></td>
                   </tr>
                   <tr>
                     <td>Positional Encoding</td>
                     <td><strong>RoPE Continuous Phase</strong></td>
-                  </tr>
-                  <tr>
-                    <td>Memory Scaling</td>
-                    <td><span class="badge badge-emerald">Strict O(1) Constant</span></td>
                   </tr>
                   <tr>
                     <td>Blackbox Core</td>
@@ -183,12 +200,12 @@
               <div class="card">
                 <div class="card-header">
                   <h3 class="card-title">
-                    <span>💡</span>
-                    <span>Quick Ingest Needle</span>
+                    <span>💉</span>
+                    <span>Needle Memory Test</span>
                   </h3>
                 </div>
                 <p style="font-size:0.82rem;color:var(--text-secondary);margin-bottom:12px;">
-                  Inject a needle fact and query it across the holographic cache:
+                  Inject a needle fact and query it across the holographic phase field:
                 </p>
                 <div style="display:flex;flex-direction:column;gap:8px;">
                   <button id="injectNeedleBtn" class="btn-secondary" style="width:100%;text-align:left;">
@@ -216,7 +233,7 @@
             </div>
 
             <p style="color:var(--text-secondary);margin-bottom:20px;font-size:0.92rem;">
-              Watch Kalpanā stream <strong>3,000,000 tokens</strong> directly into client browser memory. In standard transformers, a 3M-token KV cache requires <strong>36.86 GB</strong> of VRAM and immediately crashes the browser. With Kalpanā Phase Attention, memory strictly <strong>flatlines at 24.58 MB</strong>.
+              Watch Kalpanā stream <strong>3,000,000 tokens</strong> directly into client browser memory. In standard transformers, a 3M-token KV cache requires <strong>36.86 GB</strong> of VRAM and immediately crashes the browser. With Kalpanā Phase Attention, memory strictly <strong>flatlines at 49.15 MB</strong> (2048 bands).
             </p>
 
             <div style="margin-bottom:20px;">
@@ -239,8 +256,8 @@
             <!-- Comparison Cards -->
             <div class="grid-3">
               <div class="card" style="background:rgba(52, 211, 153, 0.06);border-color:rgba(52, 211, 153, 0.3);">
-                <div style="font-size:0.8rem;color:var(--emerald-400);font-weight:600;margin-bottom:6px;">🟢 KALPANĀ RIF CACHE</div>
-                <div id="benchKalpanaMem" style="font-size:1.8rem;font-weight:800;font-family:var(--font-heading);color:#fff;">24.58 MB</div>
+                <div style="font-size:0.8rem;color:var(--emerald-400);font-weight:600;margin-bottom:6px;">🟢 KALPANĀ RIF STATE (2048 BANDS)</div>
+                <div id="benchKalpanaMem" style="font-size:1.8rem;font-weight:800;font-family:var(--font-heading);color:#fff;">49.15 MB</div>
                 <div style="font-size:0.75rem;color:var(--text-muted);margin-top:4px;">Strictly constant O(1) across 3M tokens</div>
               </div>
 
@@ -313,13 +330,13 @@
             <div class="card-header">
               <h3 class="card-title">
                 <span>🎛️</span>
-                <span>Live Fourier Phase Spectrum Visualizer</span>
+                <span>Live Fourier Phase Spectrum Visualizer (2048 Bands)</span>
               </h3>
               <span class="badge badge-emerald">60 FPS WEBGL / 2D KERNEL</span>
             </div>
 
             <p style="color:var(--text-secondary);font-size:0.88rem;margin-bottom:16px;">
-              Real-time representation of the holographic phase interference field across harmonic frequencies $\omega_1 \dots \omega_K$.
+              Real-time representation of the holographic phase interference field across harmonic frequencies $\omega_1 \dots \omega_{2048}$.
             </p>
 
             <div style="width:100%;height:260px;background:rgba(6,10,22,0.9);border:1px solid var(--border-subtle);border-radius:12px;overflow:hidden;margin-bottom:16px;">
@@ -341,7 +358,7 @@
                 <tr>
                   <th>Sequence Length</th>
                   <th>Standard KV Cache (FP16)</th>
-                  <th>Kalpanā RIF State (1024 Bands)</th>
+                  <th>Kalpanā RIF State (2048 Bands)</th>
                   <th>Memory Reduction</th>
                   <th>Browser Status</th>
                 </tr>
@@ -350,29 +367,29 @@
                 <tr>
                   <td><strong>1,000 tokens</strong></td>
                   <td>12.28 MB</td>
-                  <td><strong>24.58 MB</strong></td>
+                  <td><strong>49.15 MB</strong></td>
                   <td>1.0x</td>
                   <td><span class="badge badge-emerald">Smooth</span></td>
                 </tr>
                 <tr>
                   <td><strong>100,000 tokens</strong></td>
                   <td>1.23 GB</td>
-                  <td><strong>24.58 MB</strong></td>
-                  <td>50x Savings</td>
+                  <td><strong>49.15 MB</strong></td>
+                  <td>25x Savings</td>
                   <td><span class="badge badge-emerald">Smooth</span></td>
                 </tr>
                 <tr>
                   <td><strong>1,000,000 tokens</strong></td>
                   <td>12.28 GB</td>
-                  <td><strong>24.58 MB</strong></td>
-                  <td>500x Savings</td>
+                  <td><strong>49.15 MB</strong></td>
+                  <td>250x Savings</td>
                   <td><span class="badge badge-cyan">100% Offline Stable</span></td>
                 </tr>
                 <tr style="background:rgba(52, 211, 153, 0.05);">
                   <td><strong>3,000,000 tokens</strong></td>
                   <td style="color:var(--rose-400);">36.86 GB (CRASH)</td>
-                  <td><strong style="color:var(--emerald-400);">24.58 MB FLATLINE</strong></td>
-                  <td><strong style="color:var(--emerald-400);">1,500x Savings</strong></td>
+                  <td><strong style="color:var(--emerald-400);">49.15 MB FLATLINE</strong></td>
+                  <td><strong style="color:var(--emerald-400);">750x Savings</strong></td>
                   <td><span class="badge badge-emerald">100% Offline PWA Ready</span></td>
                 </tr>
               </tbody>

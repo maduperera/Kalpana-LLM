@@ -10,7 +10,7 @@
 class KalpanaPhaseKernel {
   constructor(options = {}) {
     this.numHeads = options.numHeads || 8;
-    this.bands = options.bands || 1024; // 1024 (24.58 MB) or 2048 (49.15 MB)
+    this.bands = options.bands || 2048; // Default 2048 bands matching core.py TrueO1PhaseAttentionLayer
     this.headDim = options.headDim || 64;
     this.kappa = options.kappa || 2.0;
     this.minFreq = options.minFreq || 0.1;
