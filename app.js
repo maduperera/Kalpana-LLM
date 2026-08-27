@@ -4,7 +4,7 @@
  * (c) Vijñāna AI | Kalpanā
  */
 
-document.addEventListener('DOMContentLoaded', async () => {
+async function initKalpanaApp() {
   // 1. Initialize Native RIF Phase Attention Kernel (2048 bands = 49.15 MB O(1) Constant)
   const kernel = new KalpanaPhaseKernel({
     numHeads: 8,
@@ -1283,7 +1283,13 @@ document.addEventListener('DOMContentLoaded', async () => {
     div.appendChild(document.createTextNode(str));
     return div.innerHTML;
   }
-
   window.showToast = showToast;
   console.log('🚀 Kalpanā LLM PWA Ready with SmolLM2 360M WebGPU + 2048-Band RIF Phase Attention!');
-});
+}
+
+// Support both early evaluation and DOM ready
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initKalpanaApp);
+} else {
+  initKalpanaApp();
+}
