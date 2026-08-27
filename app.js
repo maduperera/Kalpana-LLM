@@ -453,7 +453,6 @@ document.addEventListener('DOMContentLoaded', async () => {
       chatMessages.innerHTML = `
         <div class="welcome-hero-banner">
           <h2 class="welcome-hero-title">How can I help you today?</h2>
-          <p class="welcome-hero-subtitle">Kalpanā LLM • 2048 Fourier Bands • 0 MB Internal KV Cache</p>
         </div>
       `;
       conversationHistory = [];

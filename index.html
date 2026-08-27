@@ -23,7 +23,7 @@
   <link rel="apple-touch-icon" sizes="192x192" href="assets/icon-192.png">
 
   <!-- Stylesheet -->
-  <link rel="stylesheet" href="style.css?v=4.8.0">
+  <link rel="stylesheet" href="style.css?v=4.9.0">
 </head>
 <body>
 
@@ -36,13 +36,6 @@
         <div class="brand-info">
           <h1>Kalpanā LLM</h1>
         </div>
-      </div>
-
-      <div style="padding: 12px 14px 0;">
-        <button id="newChatBtn" class="btn-new-chat">
-          <span style="font-size:1.15rem;font-weight:700;line-height:1;">+</span>
-          <span>New Chat</span>
-        </button>
       </div>
 
       <nav class="nav-menu" style="flex:0 0 auto;padding-bottom:10px;">
@@ -90,10 +83,20 @@
           </span>
           <span style="font-family:var(--font-mono);font-size:0.7rem;">ZERO CLOUD</span>
         </div>
-        <button id="installAppBtn" class="btn-install">
+        <button id="installAppBtn" class="btn-install" style="margin-bottom:8px;">
           <span>📱</span>
           <span>Install Kalpanā App</span>
         </button>
+        <div style="display:flex;flex-direction:column;gap:6px;">
+          <button id="newChatBtn" class="btn-new-chat" style="height:38px;padding:8px 12px;font-size:0.88rem;">
+            <span style="font-size:1.15rem;font-weight:700;line-height:1;">+</span>
+            <span>New Chat</span>
+          </button>
+          <button id="exportChatKpBtn" class="btn-secondary" style="height:38px;padding:8px 12px;font-size:0.85rem;display:inline-flex;align-items:center;justify-content:center;gap:6px;width:100%;" title="Export current chat conversation & 2048-band phase state as .kp file">
+            <span>💾</span>
+            <span>Export Chat (.kp)</span>
+          </button>
+        </div>
       </div>
     </aside>
 
@@ -110,10 +113,6 @@
         </div>
 
         <div style="display:flex;align-items:center;gap:8px;">
-          <button id="exportChatKpBtn" class="btn-secondary" style="padding:6px 12px;font-size:0.78rem;height:34px;display:inline-flex;align-items:center;gap:6px;" title="Export current chat conversation & 2048-band phase state as .kp file">
-            <span>💾</span>
-            <span>Export Chat (.kp)</span>
-          </button>
           <div class="offline-pill" style="margin-bottom:0;padding:5px 10px;font-size:0.75rem;">
             <span class="pulse-dot"></span>
             <span>100% Offline</span>
@@ -466,8 +465,8 @@
   <div id="toastContainer"></div>
 
   <!-- Scripts -->
-  <script src="kalpana-phase-kernel.js?v=4.8.0"></script>
-  <script src="spectrum-visualizer.js?v=4.8.0"></script>
-  <script type="module" src="app.js?v=4.8.0"></script>
+  <script src="kalpana-phase-kernel.js?v=4.9.0"></script>
+  <script src="spectrum-visualizer.js?v=4.9.0"></script>
+  <script type="module" src="app.js?v=4.9.0"></script>
 </body>
 </html>
