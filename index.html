@@ -23,7 +23,7 @@
   <link rel="apple-touch-icon" sizes="192x192" href="assets/icon-192.png">
 
   <!-- Stylesheet -->
-  <link rel="stylesheet" href="style.css?v=5.8.0">
+  <link rel="stylesheet" href="style.css?v=5.9.0">
 </head>
 <body>
 
@@ -109,6 +109,22 @@
           </button>
         </div>
       </header>
+
+      <!-- Sticky Thin Loading Progress Bar for WebGPU LLM Engine -->
+      <div id="globalModelLoadingBarContainer" style="display:none;width:100%;background:rgba(15,23,42,0.85);backdrop-filter:blur(8px);border-bottom:1px solid rgba(56,189,248,0.2);padding:6px 16px;z-index:40;position:sticky;top:54px;">
+        <div style="max-width:860px;margin:0 auto;display:flex;flex-direction:column;gap:4px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;font-size:0.75rem;">
+            <span style="display:flex;align-items:center;gap:6px;color:#fff;">
+              <span class="pulse-dot" style="background:var(--cyan-400);"></span>
+              <span id="globalModelLoadingText">Downloading SmolLM2 360M WebGPU Engine...</span>
+            </span>
+            <span id="globalModelLoadingPct" style="font-family:var(--font-mono);font-weight:700;color:var(--cyan-300);">0%</span>
+          </div>
+          <div style="width:100%;height:4px;background:rgba(255,255,255,0.08);border-radius:99px;overflow:hidden;">
+            <div id="globalModelLoadingFill" style="width:0%;height:100%;background:linear-gradient(90deg, var(--cyan-400), var(--emerald-400));transition:width 0.2s ease;box-shadow:0 0 8px rgba(56,189,248,0.6);"></div>
+          </div>
+        </div>
+      </div>
 
       <!-- Dynamic Tab Panes -->
       <div class="tab-content-container">
@@ -477,8 +493,8 @@
   <div id="toastContainer"></div>
 
   <!-- Scripts -->
-  <script src="kalpana-phase-kernel.js?v=5.8.0"></script>
-  <script src="spectrum-visualizer.js?v=5.8.0"></script>
-  <script type="module" src="app.js?v=5.8.0"></script>
+  <script src="kalpana-phase-kernel.js?v=5.9.0"></script>
+  <script src="spectrum-visualizer.js?v=5.9.0"></script>
+  <script type="module" src="app.js?v=5.9.0"></script>
 </body>
 </html>

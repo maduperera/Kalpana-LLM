@@ -32,7 +32,7 @@ async function initKalpanaApp() {
   let webllmEngine = null;
   let isModelLoading = false;
   let isModelReady = false;
-  const conversationHistory = [];
+  let conversationHistory = [];
 
   // 4. PWA Installation Event Handling
   window.addEventListener('beforeinstallprompt', (e) => {
@@ -336,30 +336,44 @@ async function initKalpanaApp() {
 
   async function loadWebLLMModel() {
     const getBanner = () => document.getElementById('qwenLoadBanner');
+    const globalBarContainer = document.getElementById('globalModelLoadingBarContainer');
+    const globalBarText = document.getElementById('globalModelLoadingText');
+    const globalBarPct = document.getElementById('globalModelLoadingPct');
+    const globalBarFill = document.getElementById('globalModelLoadingFill');
 
     const updateProgress = (text, progress = 0) => {
-      const banner = getBanner();
-      if (!banner) return;
       const pct = Math.min(100, Math.max(0, Math.round((progress || 0) * 100)));
       const approxMb = 140;
       const downloadedMb = Math.round((pct / 100) * approxMb);
       updateLiveTelemetryHeader(downloadedMb, false);
 
-      banner.innerHTML = `
-        <div style="width:100%;">
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;font-size:0.75rem;">
-            <span>⚡ <strong>${escapeHtml(text || 'Loading SmolLM2 360M...')}</strong></span>
-            <span style="font-family:var(--font-mono);font-weight:700;color:var(--cyan-300);">${pct}%</span>
+      // 1. Update Global Sticky Bar
+      if (globalBarContainer) {
+        globalBarContainer.style.display = 'block';
+        if (globalBarText) globalBarText.textContent = text || 'Loading SmolLM2 360M WebGPU Engine...';
+        if (globalBarPct) globalBarPct.textContent = `${pct}%`;
+        if (globalBarFill) globalBarFill.style.width = `${pct}%`;
+      }
+
+      // 2. Update Welcome Banner (if present)
+      const banner = getBanner();
+      if (banner) {
+        banner.innerHTML = `
+          <div style="width:100%;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;font-size:0.75rem;">
+              <span>⚡ <strong>${escapeHtml(text || 'Loading SmolLM2 360M...')}</strong></span>
+              <span style="font-family:var(--font-mono);font-weight:700;color:var(--cyan-300);">${pct}%</span>
+            </div>
+            <div style="width:100%;height:6px;background:rgba(255,255,255,0.08);border-radius:99px;overflow:hidden;">
+              <div style="width:${pct}%;height:100%;background:linear-gradient(90deg, var(--cyan-400), var(--emerald-400));transition:width 0.2s ease;box-shadow:0 0 8px rgba(56,189,248,0.5);"></div>
+            </div>
+            <div style="font-size:0.68rem;color:var(--text-muted);margin-top:4px;display:flex;justify-content:space-between;">
+              <span>${pct < 100 ? `${downloadedMb} MB / ~${approxMb} MB (SmolLM2 360M Balanced Engine)` : 'Compiling WebGPU shaders...'}</span>
+              <span>Instant cached offline boot</span>
+            </div>
           </div>
-          <div style="width:100%;height:6px;background:rgba(255,255,255,0.08);border-radius:99px;overflow:hidden;">
-            <div style="width:${pct}%;height:100%;background:linear-gradient(90deg, var(--cyan-400), var(--emerald-400));transition:width 0.2s ease;box-shadow:0 0 8px rgba(56,189,248,0.5);"></div>
-          </div>
-          <div style="font-size:0.68rem;color:var(--text-muted);margin-top:4px;display:flex;justify-content:space-between;">
-            <span>${pct < 100 ? `${downloadedMb} MB / ~${approxMb} MB (SmolLM2 360M Balanced Engine)` : 'Compiling WebGPU shaders...'}</span>
-            <span>Instant cached offline boot</span>
-          </div>
-        </div>
-      `;
+        `;
+      }
     };
 
     try {
@@ -380,6 +394,15 @@ async function initKalpanaApp() {
       isModelLoading = false;
       updateLiveTelemetryHeader(142.5, false);
       console.log('🟢 SmolLM2 360M WebGPU Engine is READY!');
+
+      if (globalBarContainer) {
+        if (globalBarText) globalBarText.textContent = '🟢 SmolLM2 360M WebGPU Engine Ready!';
+        if (globalBarPct) globalBarPct.textContent = '100%';
+        if (globalBarFill) globalBarFill.style.width = '100%';
+        setTimeout(() => {
+          globalBarContainer.style.display = 'none';
+        }, 2500);
+      }
 
       const banner = getBanner();
       if (banner) {
@@ -407,6 +430,13 @@ async function initKalpanaApp() {
         });
         isModelReady = true;
         isModelLoading = false;
+        
+        if (globalBarContainer) {
+          if (globalBarText) globalBarText.textContent = '🟢 SmolLM2 360M Active (Universal FP32 Mode)';
+          if (globalBarPct) globalBarPct.textContent = '100%';
+          setTimeout(() => { globalBarContainer.style.display = 'none'; }, 2500);
+        }
+
         const banner = getBanner();
         if (banner) {
           banner.style.background = 'rgba(52, 211, 153, 0.12)';
@@ -422,6 +452,11 @@ async function initKalpanaApp() {
         console.warn('WebGPU not supported on this device/browser:', err2);
         isModelLoading = false;
         isModelReady = false;
+
+        if (globalBarContainer) {
+          globalBarContainer.style.display = 'none';
+        }
+
         const banner = getBanner();
         if (banner) {
           banner.style.background = 'rgba(251, 191, 36, 0.08)';
@@ -1203,52 +1238,7 @@ async function initKalpanaApp() {
     `).join('');
   }
 
-  // 10. Clean Tab Switching (Opens as dedicated screen on mobile and desktop)
-  const navItems = document.querySelectorAll('.nav-item');
-  const tabPanes = document.querySelectorAll('.tab-pane');
-
-  function switchTab(targetTab) {
-    activeTab = targetTab;
-
-    navItems.forEach((n) => {
-      if (n.getAttribute('data-tab') === targetTab) {
-        n.classList.add('active');
-      } else {
-        n.classList.remove('active');
-      }
-    });
-
-    tabPanes.forEach((p) => {
-      if (p.id === `tab-${targetTab}`) {
-        p.classList.add('active');
-        p.style.display = 'block';
-      } else {
-        p.classList.remove('active');
-        p.style.display = 'none';
-      }
-    });
-
-    // Automatically close mobile navigation drawer
-    if (sidebar) sidebar.classList.remove('mobile-open');
-    if (sidebarOverlay) sidebarOverlay.classList.remove('active');
-
-    // Scroll to top of the new active screen
-    window.scrollTo({ top: 0, behavior: 'instant' });
-
-    if (targetTab === 'telemetry' && visualizer) {
-      setTimeout(() => visualizer.resize(), 60);
-    }
-  }
-
-  navItems.forEach((item) => {
-    item.addEventListener('click', (e) => {
-      e.preventDefault();
-      const targetTab = item.getAttribute('data-tab');
-      if (targetTab) switchTab(targetTab);
-    });
-  });
-
-  // 11. PWA Service Worker Registration
+  // 10. PWA Service Worker Registration
   if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('./sw.js')
       .then((reg) => console.log('⚡ Kalpanā Service Worker registered:', reg.scope))
