@@ -480,7 +480,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         <div class="chat-session-item ${isActive ? 'active' : ''}" data-session-id="${session.id}">
           <span class="session-title-text" title="${escapeHtml(session.title)}">💬 ${escapeHtml(session.title)}</span>
           <div class="session-actions">
-            <button class="session-action-btn btn-export-kp" data-session-id="${session.id}" title="Export chat as .kp file">💾</button>
+            <button class="session-action-btn btn-export-kp" data-session-id="${session.id}" title="Export chat as .kp file">📤</button>
             <button class="session-action-btn btn-rename" data-session-id="${session.id}" title="Rename chat">✏️</button>
             <button class="session-action-btn btn-delete" data-session-id="${session.id}" title="Delete chat">🗑️</button>
           </div>
@@ -604,6 +604,13 @@ document.addEventListener('DOMContentLoaded', async () => {
     a.click();
     URL.revokeObjectURL(url);
     showToast('success', 'Chat Exported as .kp', `Exported "${session.title}" as a portable .kp file!`);
+  }
+
+  const headerNewChatBtn = document.getElementById('headerNewChatBtn');
+  if (headerNewChatBtn) {
+    headerNewChatBtn.addEventListener('click', () => {
+      createNewChat();
+    });
   }
 
   if (newChatBtn) {
