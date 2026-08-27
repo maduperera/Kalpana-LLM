@@ -23,7 +23,7 @@
   <link rel="apple-touch-icon" sizes="192x192" href="assets/icon-192.png">
 
   <!-- Stylesheet -->
-  <link rel="stylesheet" href="style.css?v=5.4.0">
+  <link rel="stylesheet" href="style.css?v=5.5.0">
 </head>
 <body>
 
@@ -76,27 +76,17 @@
       </div>
 
       <div class="sidebar-footer">
-        <div class="offline-pill">
+        <div class="offline-pill" style="margin-bottom:8px;">
           <span style="display:flex;align-items:center;gap:6px;">
             <span class="pulse-dot"></span>
             <span>100% Offline Mode</span>
           </span>
           <span style="font-family:var(--font-mono);font-size:0.7rem;">ZERO CLOUD</span>
         </div>
-        <button id="installAppBtn" class="btn-install" style="margin-bottom:8px;">
-          <span>📱</span>
-          <span>Install Kalpanā App</span>
+        <button id="newChatBtn" class="btn-new-chat" style="height:38px;padding:8px 12px;font-size:0.88rem;">
+          <span style="font-size:1.15rem;font-weight:700;line-height:1;">+</span>
+          <span>New Chat</span>
         </button>
-        <div style="display:flex;flex-direction:column;gap:6px;">
-          <button id="newChatBtn" class="btn-new-chat" style="height:38px;padding:8px 12px;font-size:0.88rem;">
-            <span style="font-size:1.15rem;font-weight:700;line-height:1;">+</span>
-            <span>New Chat</span>
-          </button>
-          <button id="exportChatKpBtn" class="btn-secondary" style="height:38px;padding:8px 12px;font-size:0.85rem;display:inline-flex;align-items:center;justify-content:center;gap:6px;width:100%;" title="Export current chat conversation & 2048-band phase state as .kp file">
-            <span>📤</span>
-            <span>Export Chat (.kp)</span>
-          </button>
-        </div>
       </div>
     </aside>
 
@@ -491,8 +481,8 @@
   <div id="toastContainer"></div>
 
   <!-- Scripts -->
-  <script src="kalpana-phase-kernel.js?v=5.4.0"></script>
-  <script src="spectrum-visualizer.js?v=5.4.0"></script>
-  <script type="module" src="app.js?v=5.4.0"></script>
+  <script src="kalpana-phase-kernel.js?v=5.5.0"></script>
+  <script src="spectrum-visualizer.js?v=5.5.0"></script>
+  <script type="module" src="app.js?v=5.5.0"></script>
 </body>
 </html>
