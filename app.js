@@ -75,6 +75,55 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   }
 
+  // --- Navigation Tab Switcher ---
+  function switchTab(tabId) {
+    activeTab = tabId;
+
+    // Update nav items active state
+    document.querySelectorAll('.nav-item').forEach((item) => {
+      const targetTab = item.getAttribute('data-tab') || (item.getAttribute('href') ? item.getAttribute('href').replace('#', '') : '');
+      if (targetTab === tabId) {
+        item.classList.add('active');
+      } else {
+        item.classList.remove('active');
+      }
+    });
+
+    // Update tab panes visibility
+    document.querySelectorAll('.tab-pane').forEach((pane) => {
+      if (pane.id === `tab-${tabId}`) {
+        pane.classList.add('active');
+        pane.style.display = tabId === 'chat' ? 'flex' : 'block';
+      } else {
+        pane.classList.remove('active');
+        pane.style.display = 'none';
+      }
+    });
+
+    // Close mobile drawer if open
+    if (sidebar) sidebar.classList.remove('mobile-open');
+    if (sidebarOverlay) sidebarOverlay.classList.remove('active');
+
+    // Trigger visualizer refresh if switching to spectrum
+    if (tabId === 'telemetry' && visualizer) {
+      setTimeout(() => {
+        visualizer.resize();
+        visualizer.updateData(kernel.getSpectrumSnapshot());
+      }, 50);
+    }
+  }
+
+  // Attach click listeners to all nav items
+  document.querySelectorAll('.nav-item').forEach((item) => {
+    item.addEventListener('click', (e) => {
+      e.preventDefault();
+      const targetTab = item.getAttribute('data-tab') || (item.getAttribute('href') ? item.getAttribute('href').replace('#', '') : '');
+      if (targetTab) {
+        switchTab(targetTab);
+      }
+    });
+  });
+
   // 4. Live Telemetry Top Header & Wheel Meter Updater
   function updateLiveTelemetryHeader(vramMB = null, isLiveStreaming = false) {
     const memEl = document.getElementById('headerMemoryVal');
@@ -608,7 +657,9 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   const chatTopNewChatBtn = document.getElementById('chatTopNewChatBtn');
   if (chatTopNewChatBtn) {
-    chatTopNewChatBtn.addEventListener('click', () => {
+    chatTopNewChatBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
       createNewChat();
     });
   }
@@ -964,7 +1015,9 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // File Attachments Ingestion
   if (chatAttachBtn && chatAttachmentInput) {
-    chatAttachBtn.addEventListener('click', () => {
+    chatAttachBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
       chatAttachmentInput.click();
     });
 

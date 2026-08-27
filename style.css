@@ -864,8 +864,8 @@ textarea::placeholder {
   background: transparent;
   border: none;
   color: var(--text-secondary);
-  width: 34px;
-  height: 34px;
+  width: 36px;
+  height: 36px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -879,6 +879,7 @@ textarea::placeholder {
 .prompt-icon-btn:hover {
   color: #fff;
   background: rgba(255, 255, 255, 0.08);
+  transform: scale(1.06);
 }
 
 .prompt-icon-btn.readout-active {
@@ -892,37 +893,12 @@ textarea::placeholder {
   animation: pulseRecording 1.5s infinite;
 }
 
-.prompt-icon-btn {
-  background: transparent;
-  border: none;
-  color: var(--text-secondary);
-  font-size: 1.15rem;
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  transition: all var(--transition-fast);
-  flex-shrink: 0;
-}
-
-.prompt-icon-btn:hover {
-  background: rgba(255, 255, 255, 0.08);
-  color: #fff;
-  transform: scale(1.08);
-}
-
-.prompt-icon-btn.recording {
-  background: rgba(244, 63, 94, 0.2);
-  color: var(--rose-400);
-  animation: pulseMic 1.2s infinite;
-}
-
-.prompt-icon-btn.readout-active {
-  background: rgba(52, 211, 153, 0.15);
-  color: var(--emerald-400);
+/* Ensure inner SVG clicks pass through directly to parent buttons */
+.prompt-icon-btn svg,
+.btn-new-chat-circle svg,
+.btn-send-icon svg,
+.session-action-btn svg {
+  pointer-events: none;
 }
 
 @keyframes pulseMic {
