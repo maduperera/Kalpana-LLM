@@ -23,7 +23,7 @@
   <link rel="apple-touch-icon" sizes="192x192" href="assets/icon-192.png">
 
   <!-- Stylesheet -->
-  <link rel="stylesheet" href="style.css?v=5.0.0">
+  <link rel="stylesheet" href="style.css?v=5.1.0">
 </head>
 <body>
 
@@ -105,15 +105,11 @@
     <!-- Main Application Wrapper -->
     <main class="main-wrapper">
       
-      <!-- Minimal Sticky Header with First-Screen + New Chat -->
+      <!-- Minimal Sticky Header -->
       <header class="top-header">
         <div style="display:flex;align-items:center;gap:10px;">
           <button id="mobileMenuBtn" class="mobile-menu-btn" aria-label="Open Navigation">☰</button>
           <span style="font-family:var(--font-heading);font-weight:800;font-size:1.15rem;color:#fff;letter-spacing:-0.02em;">Kalpanā</span>
-          <button id="headerNewChatBtn" class="btn-secondary" style="height:32px;padding:4px 12px;font-size:0.8rem;display:inline-flex;align-items:center;gap:4px;border-radius:20px;font-weight:600;background:rgba(56,189,248,0.12);border-color:rgba(56,189,248,0.35);color:#fff;" title="Start a fresh chat">
-            <span style="font-size:1rem;font-weight:700;line-height:1;color:var(--cyan-400);">+</span>
-            <span>New Chat</span>
-          </button>
         </div>
 
         <div style="display:flex;align-items:center;gap:8px;">
@@ -134,6 +130,14 @@
         <!-- TAB 1: Spacious Modern ChatGPT-Style Chat -->
         <section id="tab-chat" class="tab-pane active chat-tab-layout">
           
+          <!-- Top Chat Action Bar (Under Title Bar Right Corner) -->
+          <div style="display:flex;justify-content:flex-end;align-items:center;padding:8px 16px 2px;max-width:860px;margin:0 auto;width:100%;">
+            <button id="chatTopNewChatBtn" class="btn-new-chat-floating" title="Start New Conversation">
+              <span style="font-size:1.05rem;font-weight:700;line-height:1;color:var(--cyan-400);">+</span>
+              <span>New Chat</span>
+            </button>
+          </div>
+
           <div class="chat-stream-container">
             <!-- Messages Stream Area -->
             <div class="chat-messages" id="chatMessages">
@@ -469,8 +473,8 @@
   <div id="toastContainer"></div>
 
   <!-- Scripts -->
-  <script src="kalpana-phase-kernel.js?v=5.0.0"></script>
-  <script src="spectrum-visualizer.js?v=5.0.0"></script>
-  <script type="module" src="app.js?v=5.0.0"></script>
+  <script src="kalpana-phase-kernel.js?v=5.1.0"></script>
+  <script src="spectrum-visualizer.js?v=5.1.0"></script>
+  <script type="module" src="app.js?v=5.1.0"></script>
 </body>
 </html>

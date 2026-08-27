@@ -606,6 +606,13 @@ document.addEventListener('DOMContentLoaded', async () => {
     showToast('success', 'Chat Exported as .kp', `Exported "${session.title}" as a portable .kp file!`);
   }
 
+  const chatTopNewChatBtn = document.getElementById('chatTopNewChatBtn');
+  if (chatTopNewChatBtn) {
+    chatTopNewChatBtn.addEventListener('click', () => {
+      createNewChat();
+    });
+  }
+
   const headerNewChatBtn = document.getElementById('headerNewChatBtn');
   if (headerNewChatBtn) {
     headerNewChatBtn.addEventListener('click', () => {

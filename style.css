@@ -267,6 +267,33 @@ body::after {
   transform: translateY(-1px);
 }
 
+/* Floating / Top-Right New Chat Button Under Title Bar */
+.btn-new-chat-floating {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(13, 21, 41, 0.75);
+  border: 1px solid rgba(56, 189, 248, 0.35);
+  backdrop-filter: blur(12px);
+  color: #fff;
+  padding: 6px 14px;
+  border-radius: 20px;
+  font-family: var(--font-heading);
+  font-weight: 600;
+  font-size: 0.82rem;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.3);
+  z-index: 10;
+}
+
+.btn-new-chat-floating:hover {
+  background: linear-gradient(135deg, rgba(56, 189, 248, 0.25), rgba(99, 102, 241, 0.25));
+  border-color: var(--cyan-400);
+  box-shadow: 0 0 16px rgba(56, 189, 248, 0.35);
+  transform: translateY(-1px);
+}
+
 /* Chat History Sidebar Section */
 .chat-history-sidebar {
   padding: 10px 14px;
