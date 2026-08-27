@@ -709,3 +709,31 @@ body::after {
     padding: 16px;
   }
 }
+
+/* Streaming Cursor Animation */
+.streaming-cursor::after {
+  content: '▋';
+  animation: blink-cursor 0.7s step-end infinite;
+  color: var(--cyan-400);
+  margin-left: 2px;
+}
+
+@keyframes blink-cursor {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
+.llm-loading-banner {
+  background: rgba(56, 189, 248, 0.08);
+  border: 1px solid rgba(56, 189, 248, 0.25);
+  border-radius: var(--radius-md);
+  padding: 8px 12px;
+  font-size: 0.78rem;
+  font-family: var(--font-mono);
+  color: var(--cyan-300);
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
