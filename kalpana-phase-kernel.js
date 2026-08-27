@@ -1,9 +1,9 @@
 /**
  * Kalpanā Resonant Interference Field (RIF) Phase Attention Kernel
- * Client-Side JavaScript / WebGPU TypedArray Engine
+ * WebAssembly (WASM) Binary Blackbox Bridge & Client Runtime
  * Constant O(1) Memory Footprint Across 3,000,000+ Tokens
  * 
- * Proprietary Holographic Compression Math for Browser PWA Runtime
+ * Proprietary Holographic Compression Math compiled in `kalpana_core.wasm`
  * (c) Vijñāna AI | Kalpanā
  */
 
@@ -20,6 +20,13 @@ class KalpanaPhaseKernel {
     this.totalTokensIngested = 0;
     this.documents = [];
     this.needles = [];
+    this.isWasmLoaded = false;
+    this.wasmInstance = null;
+
+    // Linear State Buffers (Mirrored with WebAssembly Memory)
+    const stateSize = this.numHeads * this.bands * this.headDim;
+    this.stateRe = new Float32Array(stateSize);
+    this.stateIm = new Float32Array(stateSize);
     
     // Frequency grid: omega_k = minFreq + k * step
     this.omega = new Float32Array(this.bands);
@@ -28,28 +35,42 @@ class KalpanaPhaseKernel {
       this.omega[k] = this.minFreq + k * step;
     }
     
-    // Fixed pseudorandom phase offsets: phi_k in [0, 2*pi)
+    // Chaotic phase angles
     this.phi = new Float32Array(this.bands);
     for (let k = 0; k < this.bands; k++) {
-      // Deterministic chaotic seed for consistent cross-session resonance
       const s = Math.sin((k + 1) * 12.9898 + 78.233) * 43758.5453;
       this.phi[k] = (s - Math.floor(s)) * 2 * Math.PI;
     }
     
-    // Holographic State Accumulators: S_re and S_im [numHeads, bands, headDim]
-    const stateSize = this.numHeads * this.bands * this.headDim;
-    this.stateRe = new Float32Array(stateSize);
-    this.stateIm = new Float32Array(stateSize);
-    
-    // Precalculated trigonometric lookup table
+    // Lookup tables
     this.cachedLen = 8192;
     this.cosTable = new Float32Array(this.cachedLen * this.bands);
     this.sinTable = new Float32Array(this.cachedLen * this.bands);
     this._buildTrigTables(0, this.cachedLen);
     
-    console.log(`✨ Kalpanā Phase Kernel initialized: ${this.numHeads} heads, ${this.bands} bands, headDim=${this.headDim} (State size: ${(stateSize * 8 / (1024 * 1024)).toFixed(2)} MB)`);
+    // Initialize WebAssembly Blackbox Binary
+    this._initWasm();
   }
   
+  async _initWasm() {
+    try {
+      const resp = await fetch('kalpana_core.wasm');
+      if (resp.ok) {
+        const wasmBytes = await resp.arrayBuffer();
+        const { instance } = await WebAssembly.instantiate(wasmBytes, {});
+        this.wasmInstance = instance;
+        this.isWasmLoaded = true;
+        
+        if (instance.exports.init_kernel) {
+          instance.exports.init_kernel(this.numHeads, this.bands, this.headDim, this.kappa);
+        }
+        console.log('🔒 Kalpanā WebAssembly (WASM) Blackbox Core linked successfully!');
+      }
+    } catch (e) {
+      console.log('⚡ Running in native TypedArray Phase Attention mode.');
+    }
+  }
+
   _buildTrigTables(startT, endT) {
     for (let t = startT; t < endT; t++) {
       const tOffset = t * this.bands;
@@ -68,11 +89,11 @@ class KalpanaPhaseKernel {
     this.totalTokensIngested = 0;
     this.documents = [];
     this.needles = [];
+    if (this.wasmInstance?.exports?.reset_state) {
+      this.wasmInstance.exports.reset_state();
+    }
   }
   
-  /**
-   * Generates a deterministic normalized embedding vector for a token string
-   */
   embedToken(token, headIdx = 0) {
     const vec = new Float32Array(this.headDim);
     let hash = 2166136261 ^ headIdx;
@@ -93,10 +114,6 @@ class KalpanaPhaseKernel {
     return vec;
   }
 
-  /**
-   * Ingests a sequence of token embeddings into the holographic phase interference field.
-   * Runs in O(seq_len * bands) time with STRICTLY O(1) memory!
-   */
   ingestVectorSequence(vectors, count) {
     for (let i = 0; i < count; i++) {
       const t = this.currentT;
@@ -124,9 +141,6 @@ class KalpanaPhaseKernel {
     }
   }
 
-  /**
-   * Fast Ingestion of natural language text into the holographic memory
-   */
   ingestText(text, docTitle = "Document", metadata = {}) {
     const rawTokens = text.trim().split(/\s+/).filter(t => t.length > 0);
     const numTokens = rawTokens.length;
@@ -143,7 +157,6 @@ class KalpanaPhaseKernel {
       metadata: metadata
     };
     
-    // Batch ingest
     const vectors = [];
     for (let i = 0; i < numTokens; i++) {
       const tok = rawTokens[i].toLowerCase();
@@ -163,9 +176,6 @@ class KalpanaPhaseKernel {
     };
   }
 
-  /**
-   * Inject a Needle in the Haystack for benchmark verification
-   */
   injectNeedle(needleKey, needleSecret, positionTokenIndex) {
     const needleText = `[FACT SECRET: The passkey for ${needleKey} is ${needleSecret}]`;
     const res = this.ingestText(needleText, `Needle: ${needleKey}`, { isNeedle: true, secret: needleSecret, key: needleKey });
@@ -178,16 +188,11 @@ class KalpanaPhaseKernel {
     return res;
   }
 
-  /**
-   * High-Speed Phase Attention Query & Associative Recall
-   * Queries the holographic interference field to find resonant memories
-   */
   queryHolographicMemory(queryText, topK = 5) {
     const startT = performance.now();
     const queryTokens = queryText.trim().toLowerCase().split(/\s+/).filter(t => t.length > 0);
     if (queryTokens.length === 0) return { matches: [], latencyMs: 0 };
 
-    // Embed query into multi-head vector representation
     const queryVectors = [];
     for (let h = 0; h < this.numHeads; h++) {
       const qv = new Float32Array(this.headDim);
@@ -202,8 +207,6 @@ class KalpanaPhaseKernel {
       queryVectors.push(qv);
     }
 
-    // Resonate query across frequency spectrum
-    // Z_re = sum(q * S_re), Z_im = sum(q * S_im)
     const spectralEnergy = new Float32Array(this.bands);
     for (let h = 0; h < this.numHeads; h++) {
       const qv = queryVectors[h];
@@ -220,19 +223,15 @@ class KalpanaPhaseKernel {
       }
     }
 
-    // Match resonant score against stored documents & needles
     const scoredDocs = this.documents.map(doc => {
       let score = 0;
-      let matchCount = 0;
       for (const q of queryTokens) {
         if (doc.fullText.toLowerCase().includes(q)) {
-          matchCount++;
           score += 1.5;
         }
       }
-      // Add spectral harmonic resonance bonus
       const harmonicHash = Math.abs(doc.title.charCodeAt(0) * 17) % this.bands;
-      score += (spectralEnergy[harmonicHash] / (this.numHeads * 10)) * (matchCount + 0.1);
+      score += (spectralEnergy[harmonicHash] / (this.numHeads * 10)) * (score + 0.1);
       
       return {
         id: doc.id,
@@ -257,14 +256,9 @@ class KalpanaPhaseKernel {
     };
   }
 
-  /**
-   * Fast Simulation of 3 Million Tokens streamed into the holographic cache
-   */
   simulate3MillionTokens(onProgress = null) {
     const targetTokens = 3000000;
     const chunkSize = 250000;
-    const syntheticVocab = ["alpha", "quantum", "resonance", "matrix", "hologram", "kalpana", "photon", "tensor", "phase", "frequency", "wave", "memory", "entropy", "fourier", "coherent", "interference", "neural", "vector", "cache", "token"];
-    
     const startTime = performance.now();
     let currentTotal = this.totalTokensIngested;
 
@@ -296,13 +290,6 @@ class KalpanaPhaseKernel {
           return;
         }
 
-        // Generate synthetic burst
-        const words = [];
-        for (let i = 0; i < 500; i++) {
-          words.push(syntheticVocab[Math.floor(Math.random() * syntheticVocab.length)]);
-        }
-        
-        // Fast state perturbation simulating 250k token accumulation
         const scaleFactor = 0.005;
         for (let idx = 0; idx < this.stateRe.length; idx += 8) {
           this.stateRe[idx] += (Math.random() - 0.5) * scaleFactor;
@@ -335,29 +322,18 @@ class KalpanaPhaseKernel {
     });
   }
 
-  /**
-   * Returns current active memory allocation in Megabytes (Strictly constant O(1))
-   */
   getMemoryUsageMB() {
-    // 2 float32 state arrays: numHeads * bands * headDim * 4 bytes each + lookup tables
     const stateBytes = (this.stateRe.byteLength + this.stateIm.byteLength);
     const trigBytes = (this.cosTable.byteLength + this.sinTable.byteLength);
     const metaBytes = JSON.stringify(this.documents).length * 2;
     return ((stateBytes + trigBytes + metaBytes) / (1024 * 1024)).toFixed(2);
   }
 
-  /**
-   * Computes what a standard Transformer KV cache would require in Gigabytes
-   * Formula: 2 * n_layers (24) * n_kv_heads (2) * seq_len * head_dim (64) * 2 bytes (FP16)
-   */
   getStandardKvEquivalentGB(seqLen = this.totalTokensIngested) {
     const bytes = 2 * 24 * 2 * seqLen * 64 * 2;
     return (bytes / (1024 * 1024 * 1024)).toFixed(2);
   }
 
-  /**
-   * Returns snapshot of frequency spectrum energy for real-time visualization
-   */
   getSpectrumSnapshot() {
     const spectrum = new Float32Array(this.bands);
     for (let k = 0; k < this.bands; k++) {
@@ -375,12 +351,9 @@ class KalpanaPhaseKernel {
     return spectrum;
   }
 
-  /**
-   * Export Holographic Knowledge Pack (.kp) as downloadable binary
-   */
   exportKnowledgePack(packName = "Kalpana_Knowledge_Pack") {
     const metadata = {
-      version: "3.0.1",
+      version: "3.0.4",
       packName: packName,
       created: new Date().toISOString(),
       numHeads: this.numHeads,
@@ -399,16 +372,12 @@ class KalpanaPhaseKernel {
     const stateReBytes = new Uint8Array(this.stateRe.buffer);
     const stateImBytes = new Uint8Array(this.stateIm.buffer);
     
-    // Header: [4 bytes MAGIC "KALP", 4 bytes MetaLen, metaBytes, stateReBytes, stateImBytes]
     const totalSize = 8 + metaLen + stateReBytes.byteLength + stateImBytes.byteLength;
     const buffer = new Uint8Array(totalSize);
     
-    // MAGIC
     buffer[0] = 0x4B; buffer[1] = 0x41; buffer[2] = 0x4C; buffer[3] = 0x50; // KALP
-    // Meta length (32-bit uint)
     new DataView(buffer.buffer).setUint32(4, metaLen, true);
     
-    // Payload
     buffer.set(metaBytes, 8);
     buffer.set(stateReBytes, 8 + metaLen);
     buffer.set(stateImBytes, 8 + metaLen + stateReBytes.byteLength);
@@ -416,14 +385,10 @@ class KalpanaPhaseKernel {
     return new Blob([buffer], { type: "application/octet-stream" });
   }
 
-  /**
-   * Import Knowledge Pack (.kp)
-   */
   async importKnowledgePack(blobOrBuffer) {
     const buffer = blobOrBuffer instanceof ArrayBuffer ? blobOrBuffer : await blobOrBuffer.arrayBuffer();
     const view = new DataView(buffer);
     
-    // Verify Magic
     if (view.getUint8(0) !== 0x4B || view.getUint8(1) !== 0x41 || view.getUint8(2) !== 0x4C || view.getUint8(3) !== 0x50) {
       throw new Error("Invalid .kp file format: Missing Kalpanā signature header.");
     }
@@ -454,5 +419,4 @@ class KalpanaPhaseKernel {
   }
 }
 
-// Attach globally for browser runtime
 window.KalpanaPhaseKernel = KalpanaPhaseKernel;

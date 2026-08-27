@@ -1,9 +1,9 @@
 /**
  * Kalpanā LLM PWA Service Worker
- * 100% Offline Asset & Kernel Caching Strategy
+ * 100% Offline Asset & WASM Binary Caching Strategy
  */
 
-const VERSION = '3.0.4';
+const VERSION = '3.0.5';
 const CACHE_NAME = `kalpana-llm-cache-v${VERSION}`;
 
 const ASSETS_TO_CACHE = [
@@ -12,6 +12,7 @@ const ASSETS_TO_CACHE = [
   './style.css',
   './app.js',
   './kalpana-phase-kernel.js',
+  './kalpana_core.wasm',
   './kalpana-3d.js',
   './spectrum-visualizer.js',
   './manifest.json',
@@ -30,7 +31,7 @@ self.addEventListener('install', (event) => {
   self.skipWaiting();
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
-      console.log('⚡ Kalpanā LLM PWA: Pre-caching all offline assets...');
+      console.log('⚡ Kalpanā LLM PWA: Pre-caching offline WASM & assets...');
       return Promise.allSettled(
         ASSETS_TO_CACHE.map((url) => cache.add(url))
       );
@@ -44,7 +45,6 @@ self.addEventListener('activate', (event) => {
       return Promise.all(
         cacheNames.map((name) => {
           if (name !== CACHE_NAME) {
-            console.log(`🧹 Kalpanā Service Worker: Purging outdated cache ${name}`);
             return caches.delete(name);
           }
         })
@@ -54,7 +54,6 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
-  // Always cache-first for local assets to ensure 100% offline instant loading
   event.respondWith(
     caches.match(event.request).then((cachedResponse) => {
       if (cachedResponse) {
@@ -77,7 +76,6 @@ self.addEventListener('fetch', (event) => {
 
         return networkResponse;
       }).catch(() => {
-        // Fallback to index.html for navigation requests when offline
         if (event.request.mode === 'navigate') {
           return caches.match('./index.html');
         }
