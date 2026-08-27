@@ -856,9 +856,16 @@ document.addEventListener('DOMContentLoaded', async () => {
   let isRecordingVoice = false;
   let recognition = null;
 
+  const SVG_SPEAKER_MUTED = `<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><line x1="23" y1="9" x2="17" y2="15"></line><line x1="17" y1="9" x2="23" y2="15"></line></svg>`;
+  const SVG_SPEAKER_ACTIVE = `<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path></svg>`;
+
+  const SVG_MIC_IDLE = `<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" y1="19" x2="12" y2="23"></line><line x1="8" y1="23" x2="16" y2="23"></line></svg>`;
+  const SVG_MIC_RECORDING = `<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="color:var(--rose-400);"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" y1="19" x2="12" y2="23"></line><line x1="8" y1="23" x2="16" y2="23"></line></svg>`;
+
   const chatVoiceBtn = document.getElementById('chatVoiceBtn');
   const chatReadoutBtn = document.getElementById('chatReadoutBtn');
-  const readoutIcon = document.getElementById('readoutIcon');
+  const readoutIconContainer = document.getElementById('readoutIconContainer');
+  const voiceMicIconContainer = document.getElementById('voiceMicIconContainer');
   const chatAttachBtn = document.getElementById('chatAttachBtn');
   const chatAttachmentInput = document.getElementById('chatAttachmentInput');
   const attachedFileChip = document.getElementById('attachedFileChip');
@@ -870,7 +877,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     chatReadoutBtn.addEventListener('click', () => {
       isReadoutEnabled = !isReadoutEnabled;
       chatReadoutBtn.classList.toggle('readout-active', isReadoutEnabled);
-      if (readoutIcon) readoutIcon.textContent = isReadoutEnabled ? '🔊' : '🔇';
+      if (readoutIconContainer) {
+        readoutIconContainer.innerHTML = isReadoutEnabled ? SVG_SPEAKER_ACTIVE : SVG_SPEAKER_MUTED;
+      }
       chatReadoutBtn.title = isReadoutEnabled ? 'Voice Read Out (Active)' : 'Voice Read Out (Currently OFF)';
       
       if (!isReadoutEnabled && window.speechSynthesis) {
@@ -912,7 +921,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 
           recognition.onstart = () => {
             isRecordingVoice = true;
-            chatVoiceBtn.classList.add('recording');
+            chatVoiceBtn.classList.add('recording-active');
+            if (voiceMicIconContainer) voiceMicIconContainer.innerHTML = SVG_MIC_RECORDING;
             showToast('info', 'Listening...', 'Speak into your microphone.');
           };
 
@@ -927,23 +937,28 @@ document.addEventListener('DOMContentLoaded', async () => {
           recognition.onerror = (event) => {
             console.warn('Speech recognition error:', event.error);
             isRecordingVoice = false;
-            chatVoiceBtn.classList.remove('recording');
+            chatVoiceBtn.classList.remove('recording-active');
+            if (voiceMicIconContainer) voiceMicIconContainer.innerHTML = SVG_MIC_IDLE;
+            showToast('error', 'Voice Error', 'Could not capture microphone audio.');
           };
 
           recognition.onend = () => {
             isRecordingVoice = false;
-            chatVoiceBtn.classList.remove('recording');
+            chatVoiceBtn.classList.remove('recording-active');
+            if (voiceMicIconContainer) voiceMicIconContainer.innerHTML = SVG_MIC_IDLE;
           };
 
           recognition.start();
-        } catch (e) {
-          console.warn('Speech recognition launch failed:', e);
-          chatVoiceBtn.classList.remove('recording');
+        } catch (err) {
+          console.warn('Speech recognition exception:', err);
+          isRecordingVoice = false;
+          chatVoiceBtn.classList.remove('recording-active');
+          if (voiceMicIconContainer) voiceMicIconContainer.innerHTML = SVG_MIC_IDLE;
         }
       });
     } else {
-      chatVoiceBtn.style.opacity = '0.5';
       chatVoiceBtn.title = 'Voice input not supported in this browser';
+      chatVoiceBtn.style.opacity = '0.5';
     }
   }
 
