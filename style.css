@@ -267,31 +267,35 @@ body::after {
   transform: translateY(-1px);
 }
 
-/* Floating / Top-Right New Chat Button Under Title Bar */
-.btn-new-chat-floating {
-  display: inline-flex;
+/* Circle + Icon Button Under Title Bar */
+.btn-new-chat-circle {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  display: flex;
   align-items: center;
-  gap: 6px;
-  background: rgba(13, 21, 41, 0.75);
-  border: 1px solid rgba(56, 189, 248, 0.35);
+  justify-content: center;
+  background: rgba(13, 21, 41, 0.8);
+  border: 1px solid rgba(56, 189, 248, 0.4);
   backdrop-filter: blur(12px);
-  color: #fff;
-  padding: 6px 14px;
-  border-radius: 20px;
-  font-family: var(--font-heading);
-  font-weight: 600;
-  font-size: 0.82rem;
+  color: var(--cyan-300);
   cursor: pointer;
   transition: all var(--transition-fast);
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35), 0 0 10px rgba(56, 189, 248, 0.15);
   z-index: 10;
+  padding: 0;
 }
 
-.btn-new-chat-floating:hover {
-  background: linear-gradient(135deg, rgba(56, 189, 248, 0.25), rgba(99, 102, 241, 0.25));
+.btn-new-chat-circle:hover {
+  background: linear-gradient(135deg, rgba(56, 189, 248, 0.3), rgba(99, 102, 241, 0.3));
   border-color: var(--cyan-400);
-  box-shadow: 0 0 16px rgba(56, 189, 248, 0.35);
-  transform: translateY(-1px);
+  color: #fff;
+  box-shadow: 0 0 16px rgba(56, 189, 248, 0.45);
+  transform: scale(1.08);
+}
+
+.btn-new-chat-circle:active {
+  transform: scale(0.95);
 }
 
 /* Chat History Sidebar Section */
