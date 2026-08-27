@@ -1,0 +1,28 @@
+# Proprietary Kernel Protection
+core.py
+core.pyc
+qwen_rif.py
+api_server.py
+deploy_to_hf.py
+benchmark_investor_eval.py
+benchmark_mqar.py
+test_*.py
+debug_*.py
+__pycache__/
+*.py[cod]
+*$py.class
+.gradio/
+hf_space_deploy/
+
+# Environment & Credentials
+.env
+.env.local
+*.pem
+*.key
+
+# Temporary artifacts and caches
+.DS_Store
+Thumbs.db
+node_modules/
+dist/
+build/
