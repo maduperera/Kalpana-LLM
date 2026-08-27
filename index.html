@@ -23,7 +23,7 @@
   <link rel="apple-touch-icon" sizes="192x192" href="assets/icon-192.png">
 
   <!-- Stylesheet -->
-  <link rel="stylesheet" href="style.css?v=4.6.0">
+  <link rel="stylesheet" href="style.css?v=4.7.0">
 </head>
 <body>
 
@@ -238,9 +238,20 @@
               <div class="card-header">
                 <h3 class="card-title">
                   <span>📥</span>
-                  <span>Ingest New Content</span>
+                  <span>Create Knowledge Pack / Ingest Document</span>
                 </h3>
                 <span class="badge badge-cyan">2048 BANDS</span>
+              </div>
+
+              <!-- 3M Token Global Capacity Tracker -->
+              <div style="margin-bottom:16px;background:rgba(255,255,255,0.02);border:1px solid var(--border-subtle);border-radius:10px;padding:12px 14px;">
+                <div style="display:flex;justify-content:space-between;align-items:center;font-size:0.8rem;margin-bottom:6px;">
+                  <span style="color:var(--text-secondary);font-weight:600;">📊 3M Holographic Capacity:</span>
+                  <span id="capacitySpentText" style="color:var(--emerald-400);font-family:var(--font-mono);font-size:0.78rem;">0 / 3,000,000 tokens (0.00% used • 3,000,000 left)</span>
+                </div>
+                <div style="width:100%;height:4px;background:rgba(255,255,255,0.06);border-radius:2px;overflow:hidden;">
+                  <div id="capacitySpentBar" style="width:0%;height:100%;background:linear-gradient(90deg, var(--cyan-400), var(--emerald-400));transition:width 0.3s ease;"></div>
+                </div>
               </div>
 
               <div style="margin-bottom:14px;">
@@ -251,19 +262,46 @@
                 <textarea id="quickIngestText" class="input-field" rows="4" style="width:100%;resize:none;font-size:0.9rem;" placeholder="Paste research notes, transcripts, or code to encode into holographic phase memory..."></textarea>
               </div>
 
+              <!-- Thin Live Ingestion Progress Bar (Active During File Upload / Ingestion) -->
+              <div id="ingestProgressContainer" style="display:none;margin-bottom:14px;background:rgba(56,189,248,0.06);border:1px solid rgba(56,189,248,0.25);border-radius:8px;padding:10px 14px;">
+                <div style="display:flex;justify-content:space-between;font-size:0.78rem;margin-bottom:6px;">
+                  <span id="ingestProgressStatus" style="color:var(--cyan-300);font-weight:600;">Ingesting document...</span>
+                  <span id="ingestProgressTokens" style="color:var(--text-secondary);font-family:var(--font-mono);">0 / 0 tokens</span>
+                </div>
+                <div style="width:100%;height:4px;background:rgba(255,255,255,0.08);border-radius:2px;overflow:hidden;">
+                  <div id="ingestProgressBar" style="width:0%;height:100%;background:linear-gradient(90deg, var(--cyan-400), var(--emerald-400));transition:width 0.08s ease;"></div>
+                </div>
+              </div>
+
               <div style="display:flex;gap:10px;flex-wrap:wrap;">
                 <button id="quickIngestBtn" class="btn-primary" style="flex:1;min-width:180px;height:44px;">
                   <span>⚡ Ingest into Hologram</span>
                 </button>
                 <button id="fileUploadBtn" class="btn-secondary" style="height:44px;">
-                  <span>📁 Upload File</span>
+                  <span>📁 Upload Document</span>
                 </button>
                 <input type="file" id="packFileInput" style="display:none;" accept=".txt,.pdf,.md,.json,.csv,.py,.js">
-                <button id="importKpBtn" class="btn-secondary" style="height:44px;">
+              </div>
+            </div>
+
+            <!-- Knowledge Pack (.kp) Portable Archives Card (Separated) -->
+            <div class="card" style="margin-bottom:20px;">
+              <div class="card-header">
+                <h3 class="card-title">
+                  <span>📦</span>
+                  <span>Knowledge Pack Archives (.kp)</span>
+                </h3>
+                <span class="badge badge-emerald">PORTABLE ~6 MB</span>
+              </div>
+              <p style="color:var(--text-secondary);font-size:0.84rem;margin-bottom:14px;line-height:1.5;">
+                Export your active 2048-band holographic memory state into a compact portable binary <code style="color:var(--cyan-300);background:rgba(56,189,248,0.1);padding:2px 6px;border-radius:4px;">.kp</code> package (~6 MB), or import pre-compiled knowledge archives instantly.
+              </p>
+              <div style="display:flex;gap:10px;flex-wrap:wrap;">
+                <button id="importKpBtn" class="btn-secondary" style="flex:1;min-width:180px;height:44px;">
                   <span>📥 Import .kp File</span>
                 </button>
                 <input type="file" id="importKpFileInput" style="display:none;" accept=".kp,.bin">
-                <button id="exportKpBtn" class="btn-secondary" style="height:44px;">
+                <button id="exportKpBtn" class="btn-secondary" style="flex:1;min-width:180px;height:44px;">
                   <span>💾 Export .kp File</span>
                 </button>
               </div>
@@ -406,8 +444,8 @@
   <div id="toastContainer"></div>
 
   <!-- Scripts -->
-  <script src="kalpana-phase-kernel.js?v=4.6.0"></script>
-  <script src="spectrum-visualizer.js?v=4.6.0"></script>
-  <script type="module" src="app.js?v=4.6.0"></script>
+  <script src="kalpana-phase-kernel.js?v=4.7.0"></script>
+  <script src="spectrum-visualizer.js?v=4.7.0"></script>
+  <script type="module" src="app.js?v=4.7.0"></script>
 </body>
 </html>

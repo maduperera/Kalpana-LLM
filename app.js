@@ -140,6 +140,18 @@ document.addEventListener('DOMContentLoaded', async () => {
         savingsTrack.style.strokeDashoffset = (251.2 * (1 - pct)).toFixed(1);
       }
     }
+
+    // 4. 3M Holographic Capacity Tracker
+    const capacityText = document.getElementById('capacitySpentText');
+    const capacityBar = document.getElementById('capacitySpentBar');
+    if (capacityText && capacityBar) {
+      const spent = kernel.totalTokensIngested;
+      const total = 3000000;
+      const pct = Math.min(100, (spent / total) * 100);
+      const remaining = Math.max(0, total - spent);
+      capacityText.textContent = `${spent.toLocaleString()} / 3,000,000 tokens (${pct.toFixed(2)}% used • ${remaining.toLocaleString()} left)`;
+      capacityBar.style.width = `${Math.max(spent > 0 ? 0.4 : 0, pct)}%`;
+    }
   }
   updateLiveTelemetryHeader();
 
@@ -679,16 +691,16 @@ document.addEventListener('DOMContentLoaded', async () => {
       if (!file) return;
 
       const reader = new FileReader();
-      reader.onload = (evt) => {
+      reader.onload = async (evt) => {
         const textContent = evt.target.result;
-        const res = kernel.ingestText(textContent, file.name);
+        const res = await kernel.ingestTextAsync(textContent, file.name);
         if (attachedFileChip && attachedFileName) {
           attachedFileName.textContent = `📎 ${file.name} (${res.tokens.toLocaleString()} tokens)`;
           attachedFileChip.style.display = 'inline-flex';
         }
         updateLiveTelemetryHeader();
         renderDocumentList();
-        showToast('success', 'File Attached & Ingested', `Encoded "${file.name}" (${res.tokens} tok) into 2048-band phase memory in ${res.timeMs.toFixed(1)}ms.`);
+        showToast('success', 'File Attached & Ingested', `Encoded "${file.name}" (${res.tokens.toLocaleString()} tok) into 2048-band phase memory in ${res.timeMs.toFixed(1)}ms.`);
       };
       reader.readAsText(file);
     });
@@ -709,19 +721,38 @@ document.addEventListener('DOMContentLoaded', async () => {
   const packDocTitle = document.getElementById('packDocTitle');
   const fileUploadBtn = document.getElementById('fileUploadBtn');
   const packFileInput = document.getElementById('packFileInput');
+  const ingestProgressContainer = document.getElementById('ingestProgressContainer');
+  const ingestProgressBar = document.getElementById('ingestProgressBar');
+  const ingestProgressStatus = document.getElementById('ingestProgressStatus');
+  const ingestProgressTokens = document.getElementById('ingestProgressTokens');
 
   if (fileUploadBtn && packFileInput) {
     fileUploadBtn.addEventListener('click', () => packFileInput.click());
     packFileInput.addEventListener('change', (e) => {
       const file = e.target.files[0];
       if (!file) return;
+
       const reader = new FileReader();
-      reader.onload = (evt) => {
+      reader.onload = async (evt) => {
         const text = evt.target.result;
-        const res = kernel.ingestText(text, file.name);
+        if (ingestProgressContainer) ingestProgressContainer.style.display = 'block';
+        if (fileUploadBtn) fileUploadBtn.disabled = true;
+
+        const res = await kernel.ingestTextAsync(text, file.name, {}, (prog) => {
+          if (ingestProgressBar) ingestProgressBar.style.width = `${prog.percent}%`;
+          if (ingestProgressStatus) ingestProgressStatus.textContent = `Encoding "${file.name}" into 2048 bands (${prog.percent}%)...`;
+          if (ingestProgressTokens) ingestProgressTokens.textContent = `${prog.tokensIngested.toLocaleString()} / ${prog.totalTokens.toLocaleString()} tok (${prog.remainingTokens.toLocaleString()} left)`;
+          updateLiveTelemetryHeader();
+        });
+
+        if (ingestProgressContainer) {
+          setTimeout(() => { ingestProgressContainer.style.display = 'none'; }, 600);
+        }
+        if (fileUploadBtn) fileUploadBtn.disabled = false;
+        packFileInput.value = '';
         renderDocumentList();
         updateLiveTelemetryHeader();
-        showToast('success', 'Document Ingested', `Ingested "${file.name}" (${res.tokens} tokens) into holographic field.`);
+        showToast('success', 'Document Ingested', `Ingested "${file.name}" (${res.tokens.toLocaleString()} tokens) into holographic field.`);
       };
       reader.readAsText(file);
     });
@@ -735,6 +766,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
       try {
         const meta = await kernel.importKnowledgePack(file);
+        importKpFileInput.value = '';
         renderDocumentList();
         updateLiveTelemetryHeader();
         showToast('success', 'Knowledge Pack Imported!', `Loaded "${meta.packName || file.name}" (${(meta.totalTokens || 0).toLocaleString()} tokens, ${(meta.documents || []).length} docs).`);
@@ -746,16 +778,30 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   if (quickIngestBtn && quickIngestText) {
-    quickIngestBtn.addEventListener('click', () => {
+    quickIngestBtn.addEventListener('click', async () => {
       const text = quickIngestText.value.trim();
       if (!text) return;
       const title = (packDocTitle && packDocTitle.value.trim()) || ("Document " + (kernel.documents.length + 1));
-      const res = kernel.ingestText(text, title);
+      
+      if (ingestProgressContainer) ingestProgressContainer.style.display = 'block';
+      if (quickIngestBtn) quickIngestBtn.disabled = true;
+
+      const res = await kernel.ingestTextAsync(text, title, {}, (prog) => {
+        if (ingestProgressBar) ingestProgressBar.style.width = `${prog.percent}%`;
+        if (ingestProgressStatus) ingestProgressStatus.textContent = `Encoding into 2048 bands (${prog.percent}%)...`;
+        if (ingestProgressTokens) ingestProgressTokens.textContent = `${prog.tokensIngested.toLocaleString()} / ${prog.totalTokens.toLocaleString()} tok (${prog.remainingTokens.toLocaleString()} left)`;
+        updateLiveTelemetryHeader();
+      });
+
       quickIngestText.value = '';
       if (packDocTitle) packDocTitle.value = '';
-      showToast('success', 'Ingested!', `Added ${res.tokens} tokens into holographic memory in ${res.timeMs.toFixed(1)}ms.`);
+      if (ingestProgressContainer) {
+        setTimeout(() => { ingestProgressContainer.style.display = 'none'; }, 600);
+      }
+      if (quickIngestBtn) quickIngestBtn.disabled = false;
       renderDocumentList();
       updateLiveTelemetryHeader();
+      showToast('success', 'Ingested!', `Added ${res.tokens.toLocaleString()} tokens into holographic memory in ${res.timeMs.toFixed(1)}ms.`);
     });
   }
 

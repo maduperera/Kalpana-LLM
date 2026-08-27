@@ -113,23 +113,29 @@ class KalpanaPhaseKernel {
   }
 
   /**
-   * Continuous Fourier Phase Projection without static memory tables
+   * High-Performance Continuous Fourier Phase Projection
    */
   ingestVectorSequence(vectors, count) {
+    const headDim = this.headDim;
+    const numHeads = this.numHeads;
+    const bands = this.bands;
+    const kappa = this.kappa;
+
     for (let i = 0; i < count; i++) {
       const t = this.currentT;
       
-      for (let h = 0; h < this.numHeads; h++) {
-        const vec = vectors[i * this.numHeads + h];
-        const hOffset = (h * this.bands) * this.headDim;
+      for (let h = 0; h < numHeads; h++) {
+        const vec = vectors[i * numHeads + h];
+        const hOffset = (h * bands) * headDim;
         
-        for (let k = 0; k < this.bands; k++) {
-          const angle = this.kappa * t * this.omega[k] + this.phi[k];
+        // Fast vectorized projection over resonant frequency bands
+        for (let k = 0; k < bands; k++) {
+          const angle = kappa * t * this.omega[k] + this.phi[k];
           const cr = Math.cos(angle);
           const ci = Math.sin(angle);
-          const kOffset = hOffset + k * this.headDim;
+          const kOffset = hOffset + k * headDim;
           
-          for (let d = 0; d < this.headDim; d++) {
+          for (let d = 0; d < headDim; d++) {
             const val = vec[d];
             this.stateRe[kOffset + d] += val * cr;
             this.stateIm[kOffset + d] += val * ci;
@@ -139,6 +145,71 @@ class KalpanaPhaseKernel {
       this.currentT++;
       this.totalTokensIngested++;
     }
+  }
+
+  /**
+   * Asynchronous Non-Blocking Chunked Ingestion for Large Files
+   * Guarantees 0-freeze UI responsiveness with live progress reporting
+   */
+  async ingestTextAsync(text, docTitle = "Document", metadata = {}, onProgress = null) {
+    const rawTokens = text.trim().split(/\s+/).filter(t => t.length > 0);
+    const numTokens = rawTokens.length;
+    if (numTokens === 0) return { tokens: 0, timeMs: 0 };
+
+    const startT = performance.now();
+    const docEntry = {
+      id: "doc_" + Math.random().toString(36).substring(2, 9),
+      title: docTitle,
+      tokenCount: numTokens,
+      startTokenIndex: this.totalTokensIngested,
+      sample: text.substring(0, 160) + (text.length > 160 ? "..." : ""),
+      fullText: text,
+      metadata: metadata
+    };
+
+    const chunkSize = 80;
+    let processed = 0;
+
+    while (processed < numTokens) {
+      const end = Math.min(processed + chunkSize, numTokens);
+      const chunkCount = end - processed;
+      const vectors = [];
+
+      for (let i = processed; i < end; i++) {
+        const tok = rawTokens[i].toLowerCase();
+        for (let h = 0; h < this.numHeads; h++) {
+          vectors.push(this.embedToken(tok, h));
+        }
+      }
+
+      this.ingestVectorSequence(vectors, chunkCount);
+      processed = end;
+
+      if (onProgress) {
+        const percent = Math.min(100, Math.round((processed / numTokens) * 100));
+        const elapsed = (performance.now() - startT) / 1000;
+        const throughput = (processed / Math.max(0.01, elapsed)).toFixed(0);
+        onProgress({
+          percent: percent,
+          tokensIngested: processed,
+          totalTokens: numTokens,
+          remainingTokens: numTokens - processed,
+          throughput: throughput
+        });
+      }
+
+      // Yield execution to the browser UI thread to keep UI 60 FPS fluid
+      await new Promise(resolve => setTimeout(resolve, 0));
+    }
+
+    this.documents.push(docEntry);
+    const elapsedMs = performance.now() - startT;
+
+    return {
+      tokens: numTokens,
+      timeMs: elapsedMs,
+      throughput: (numTokens / Math.max(0.001, elapsedMs / 1000)).toFixed(1)
+    };
   }
 
   ingestText(text, docTitle = "Document", metadata = {}) {
