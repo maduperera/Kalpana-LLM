@@ -208,6 +208,34 @@ document.addEventListener('DOMContentLoaded', async () => {
       answer: `🍎 **Sir Isaac Newton (1643–1727)** formulated the Three Laws of Motion and Universal Gravitation (F = Gm₁m₂/r²), and co-invented calculus.`
     },
 
+    // --- Nature, Science & Biology ---
+    {
+      keys: ['tree generates oxygen', 'trees produce oxygen', 'how a tree generates oxygen', 'photosynthesis', 'oxygen generation', 'how plants make oxygen', 'how do trees make oxygen'],
+      answer: `🌳 **How Trees & Plants Generate Oxygen (Photosynthesis)**\n\n` +
+        `Trees generate oxygen through **photosynthesis**, a biochemical process where sunlight, water, and carbon dioxide are converted into glucose (energy) and oxygen ($O_2$).\n\n` +
+        `### 🔬 The Photosynthesis Chemical Equation:\n` +
+        `$$6CO_2 + 6H_2O + \\text{Light Energy} \\longrightarrow C_6H_{12}O_6 + 6O_2$$\n\n` +
+        `### 🌿 Step-by-Step Mechanism:\n` +
+        `1. **Light Absorption:** Chlorophyll pigments inside plant chloroplasts capture photons from sunlight.\n` +
+        `2. **Water Photolysis (Light Reactions):** Water ($H_2O$) absorbed by roots is split into hydrogen ions ($H^+$), electrons, and **Oxygen gas ($O_2$)**, which is released into the atmosphere through microscopic leaf pores called **stomata**.\n` +
+        `3. **Carbon Fixation (Calvin Cycle):** Carbon dioxide ($CO_2$) is bonded with hydrogen to create glucose ($C_6H_{12}O_6$) for tree growth.\n\n` +
+        `🌲 *A single mature leafy tree produces enough oxygen in one season for 10 people to breathe for a whole year!*`
+    },
+    {
+      keys: ['dna', 'genetic code', 'rna', 'double helix'],
+      answer: `🧬 **DNA (Deoxyribonucleic Acid)** is the hereditary material containing genetic instructions for development, functioning, and reproduction.\n\n` +
+        `- **Structure:** Double helix formed by base pairs: Adenine (A) pairs with Thymine (T), and Cytosine (C) pairs with Guanine (G).\n` +
+        `- **Discovery:** Watson, Crick, and Rosalind Franklin (1953).`
+    },
+    {
+      keys: ['speed of light', 'how fast is light'],
+      answer: `⚡ **The Speed of Light ($c$)** in a vacuum is exactly **$299,792,458\\text{ m/s}$** (~$300,000\\text{ km/s}$ or $186,282\\text{ miles/s}$).\n\nAccording to Einstein's Special Relativity, $c$ is the universal speed limit for energy, matter, and information.`
+    },
+    {
+      keys: ['quantum computing', 'qubit', 'quantum computer'],
+      answer: `💻 **Quantum Computing** leverages quantum mechanical phenomena—**superposition** and **quantum entanglement**—to process complex calculations exponentially faster than classical binary bits.`
+    },
+
     // --- Kalpana LLM Architecture ---
     {
       keys: ['what llm', 'which llm', 'what model is', 'what ai model', 'what language model', 'kv cache'],
@@ -217,7 +245,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         `- **Zero Internal KV Cache:** Replaced by **TrueO1PhaseAttentionLayer**.\n` +
         `- **2048 Fourier Bands:** Keys and Values project into continuous harmonic frequencies ($K_{re}, K_{im}, V_{re}, V_{im}$).\n` +
         `- **O(1) Constant Memory:** Persistent state flatlines at strictly **${kernel.getMemoryUsageMB()} MB** forever.\n` +
-        `- **Qwen 2.5 0.5B:** Powers in-browser WebGPU token generation with zero cloud dependency.`
+        `- **SmolLM2 360M:** Powers client-side in-browser WebGPU token generation with zero cloud dependency.`
     },
     {
       keys: ['kalpana', 'phase attention', 'rif', 'resonant interference', 'what is this app', 'what are you', 'who are you'],
@@ -431,19 +459,39 @@ document.addEventListener('DOMContentLoaded', async () => {
       let fullResponse = '';
       let tokenCount = 0;
 
+      // Keep only last 4 turns for WebGPU context window stability
+      const recentHistory = conversationHistory.slice(-4);
+
       try {
-        const completion = await webllmEngine.chat.completions.create({
-          messages: [
-            {
-              role: "system",
-              content: `You are Kalpanā, a highly intelligent AI assistant operating with native Resonant Interference Field (RIF) Phase Attention (2048 Fourier frequency bands, strictly constant O(1) memory, zero internal KV cache). Answer clearly, comprehensively, and helpfully.`
-            },
-            ...conversationHistory
-          ],
-          stream: true,
-          temperature: 0.7,
-          max_tokens: 512
-        });
+        let completion;
+        try {
+          completion = await webllmEngine.chat.completions.create({
+            messages: [
+              {
+                role: "system",
+                content: `You are Kalpanā, a helpful and knowledgeable AI assistant operating with native RIF Phase Attention (2048 Fourier frequency bands, strictly constant O(1) memory, zero internal KV cache). Answer clearly, comprehensively, and helpfully.`
+              },
+              ...recentHistory
+            ],
+            stream: true,
+            temperature: 0.7,
+            max_tokens: 512
+          });
+        } catch (ctxErr) {
+          console.warn('Context error in WebLLM, retrying with single prompt:', ctxErr);
+          completion = await webllmEngine.chat.completions.create({
+            messages: [
+              {
+                role: "system",
+                content: `You are Kalpanā, a helpful and knowledgeable AI assistant. Answer clearly, comprehensively, and helpfully.`
+              },
+              { role: "user", content: text }
+            ],
+            stream: true,
+            temperature: 0.7,
+            max_tokens: 512
+          });
+        }
 
         for await (const chunk of completion) {
           const delta = chunk.choices[0]?.delta?.content || '';
@@ -479,7 +527,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         return;
       } catch (err) {
         console.warn('SmolLM2 generation error, using native knowledge fallback:', err);
-        contentDiv.classList.remove('streaming-cursor');
+        if (contentDiv) contentDiv.classList.remove('streaming-cursor');
+        if (assistantBubble && assistantBubble.parentNode) assistantBubble.remove();
         updateLiveTelemetryHeader(null, false);
       }
     }
