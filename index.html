@@ -23,7 +23,7 @@
   <link rel="apple-touch-icon" sizes="192x192" href="assets/icon-192.png">
 
   <!-- Stylesheet -->
-  <link rel="stylesheet" href="style.css?v=4.0.0">
+  <link rel="stylesheet" href="style.css?v=4.1.0">
 </head>
 <body>
 
@@ -110,48 +110,42 @@
       <!-- Dynamic Tab Panes -->
       <div class="tab-content-container">
 
-        <!-- TAB 1: Holographic Chat & Phase Retrieval -->
-        <section id="tab-chat" class="tab-pane active">
-          <div class="grid-2" style="grid-template-columns: 2.2fr 1fr; margin-bottom: 24px;">
-            
-            <!-- Chat Window Card -->
-            <div class="card chat-window">
-              <div class="card-header">
-                <h3 class="card-title">
-                  <span>🧠</span>
-                  <span>Resonant Phase Attention & Intelligence</span>
-                </h3>
-                <span class="badge badge-emerald">ZERO KV CACHE</span>
-              </div>
-
-              <div class="chat-messages" id="chatMessages">
-                <div class="chat-bubble assistant">
-                  <div>
-                    ✨ <strong>Welcome to Kalpanā LLM!</strong>
-                    <br><br>
-                    <div class="llm-loading-banner" id="qwenLoadBanner">
-                      <span>⏳ Loading SmolLM2 360M WebGPU Engine...</span>
-                    </div>
-                  </div>
-                  <div class="msg-meta">
-                    <span>⚡ 0.1ms</span>
-                    <span>● 2048 Fourier Bands Active</span>
-                  </div>
+        <!-- TAB 1: Spacious Modern ChatGPT-Style Chat -->
+        <section id="tab-chat" class="tab-pane active chat-tab-layout">
+          
+          <div class="chat-stream-container">
+            <!-- Messages Stream Area -->
+            <div class="chat-messages" id="chatMessages">
+              <div class="welcome-hero-banner">
+                <h2 class="welcome-hero-title">How can I help you today?</h2>
+                <div class="llm-loading-banner" id="qwenLoadBanner">
+                  <span>⏳ Loading SmolLM2 360M WebGPU Engine...</span>
                 </div>
               </div>
+            </div>
 
+            <!-- Modern ChatGPT-Style Input Bar -->
+            <div class="chat-input-wrapper">
               <div class="chat-input-bar">
                 <input type="text" id="chatInput" class="input-field" placeholder="Ask anything (e.g. 'what is tennis', 'who is thomas edison')..." autocomplete="off">
-                <button id="chatSendBtn" class="btn-primary">
+                <button id="chatSendBtn" class="btn-primary" aria-label="Send message">
                   <span>Send</span>
                   <span>🚀</span>
                 </button>
               </div>
+              <div class="chat-input-subtext">
+                Kalpanā Native RIF Phase Attention Core • 2048 Harmonic Bands • Constant O(1) Memory
+              </div>
             </div>
+          </div>
 
-            <!-- Side HUD: Futuristic Live Wheel Meter Gauges -->
-            <div class="wheel-meters-hud" style="display:flex;flex-direction:column;gap:16px;">
-              
+          <!-- Bottom Telemetry: Futuristic Radial Wheel Meters (Visible when scrolling down) -->
+          <div class="bottom-telemetry-section">
+            <div class="telemetry-section-title">
+              <span>⚡ Live Memory Telemetry & Scaling Performance</span>
+            </div>
+            
+            <div class="wheel-meters-hud">
               <!-- Wheel Gauge 1: RIF State Memory -->
               <div class="wheel-meter-card">
                 <div class="wheel-gauge-title">⚡ RIF State Cache</div>
@@ -202,10 +196,9 @@
                 <div class="wheel-gauge-subtitle">vs 36.86 GB Standard KV</div>
                 <span class="badge badge-fuchsia" style="margin-top:6px;">3M+ Token Capable</span>
               </div>
-
             </div>
-
           </div>
+
         </section>
 
         <!-- TAB 2: 3 Million Token Haystack Benchmark -->
@@ -393,8 +386,8 @@
   <div id="toastContainer"></div>
 
   <!-- Scripts -->
-  <script src="kalpana-phase-kernel.js?v=4.0.0"></script>
-  <script src="spectrum-visualizer.js?v=4.0.0"></script>
-  <script type="module" src="app.js?v=4.0.0"></script>
+  <script src="kalpana-phase-kernel.js?v=4.1.0"></script>
+  <script src="spectrum-visualizer.js?v=4.1.0"></script>
+  <script type="module" src="app.js?v=4.1.0"></script>
 </body>
 </html>

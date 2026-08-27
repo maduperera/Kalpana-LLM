@@ -450,7 +450,7 @@ document.addEventListener('DOMContentLoaded', async () => {
           fullResponse += delta;
           tokenCount++;
           contentDiv.innerHTML = formatMarkdown(fullResponse);
-          chatMessages.scrollTop = chatMessages.scrollHeight;
+          window.scrollTo({ top: document.body.scrollHeight, behavior: 'instant' });
 
           // Real-time live VRAM metering fluctuation during matrix ops
           const dynamicVram = 142.5 + Math.sin(tokenCount * 0.45) * 3.8;
