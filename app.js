@@ -823,12 +823,12 @@ async function initKalpanaApp() {
             messages: [
               {
                 role: "system",
-                content: `You are Kalpanā, a helpful and knowledgeable AI assistant operating with native RIF Phase Attention (2048 Fourier frequency bands, strictly constant O(1) memory, zero internal KV cache). Answer clearly, comprehensively, and helpfully.`
+                content: `You are Kalpanā, a helpful, intelligent, and versatile AI assistant. You can answer questions on any topic, including general knowledge, sports (such as cricket, football, tennis), science, history, coding, and more. Answer clearly, accurately, and helpfully.`
               },
               ...recentHistory
             ],
             stream: true,
-            temperature: 0.7,
+            temperature: 0.6,
             max_tokens: 512
           });
         } catch (ctxErr) {
@@ -837,12 +837,12 @@ async function initKalpanaApp() {
             messages: [
               {
                 role: "system",
-                content: `You are Kalpanā, a helpful and knowledgeable AI assistant. Answer clearly, comprehensively, and helpfully.`
+                content: `You are Kalpanā, a helpful, intelligent, and versatile AI assistant. Answer clearly, accurately, and helpfully.`
               },
               { role: "user", content: text }
             ],
             stream: true,
-            temperature: 0.7,
+            temperature: 0.6,
             max_tokens: 512
           });
         }
