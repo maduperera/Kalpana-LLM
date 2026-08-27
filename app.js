@@ -393,12 +393,244 @@ document.addEventListener('DOMContentLoaded', async () => {
     loadWebLLMModel();
   }, 400);
 
-  // 8. Holographic Chat Interface
+  // 8. ChatGPT-Style Multi-Chat Session Management System
+  const SESSION_STORAGE_KEY = 'kalpana_chat_sessions_v2';
+  const ACTIVE_SESSION_KEY = 'kalpana_active_session_id_v2';
+  let chatSessions = [];
+  let activeSessionId = null;
+
   const chatInput = document.getElementById('chatInput');
   const chatSendBtn = document.getElementById('chatSendBtn');
   const chatMessages = document.getElementById('chatMessages');
+  const newChatBtn = document.getElementById('newChatBtn');
+  const exportChatKpBtn = document.getElementById('exportChatKpBtn');
+
+  function loadSessionsFromStorage() {
+    try {
+      const saved = localStorage.getItem(SESSION_STORAGE_KEY);
+      if (saved) {
+        chatSessions = JSON.parse(saved);
+      }
+    } catch (e) {
+      console.warn('Failed to parse saved chat sessions:', e);
+      chatSessions = [];
+    }
+
+    if (!chatSessions || chatSessions.length === 0) {
+      const initial = {
+        id: 'session_' + Date.now(),
+        title: 'New Conversation',
+        createdAt: Date.now(),
+        messages: []
+      };
+      chatSessions = [initial];
+    }
+
+    const savedActiveId = localStorage.getItem(ACTIVE_SESSION_KEY);
+    const exists = chatSessions.some(s => s.id === savedActiveId);
+    activeSessionId = exists ? savedActiveId : chatSessions[0].id;
+  }
+
+  function saveSessionsToStorage() {
+    try {
+      localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(chatSessions));
+      localStorage.setItem(ACTIVE_SESSION_KEY, activeSessionId);
+    } catch (e) {
+      console.warn('Failed to save sessions to localStorage:', e);
+    }
+  }
+
+  function getActiveSession() {
+    return chatSessions.find(s => s.id === activeSessionId) || chatSessions[0];
+  }
+
+  function renderActiveSessionMessages() {
+    if (!chatMessages) return;
+    const session = getActiveSession();
+    chatMessages.innerHTML = '';
+
+    if (!session || !session.messages || session.messages.length === 0) {
+      chatMessages.innerHTML = `
+        <div class="welcome-hero-banner">
+          <h2 class="welcome-hero-title">How can I help you today?</h2>
+          <p class="welcome-hero-subtitle">Kalpanā LLM • 2048 Fourier Bands • 0 MB Internal KV Cache</p>
+        </div>
+      `;
+      conversationHistory = [];
+      return;
+    }
+
+    conversationHistory = [];
+    session.messages.forEach((msg) => {
+      conversationHistory.push({ role: msg.role, content: msg.content });
+      appendChatMessage(msg.role, msg.content, msg.meta || null);
+    });
+
+    window.scrollTo({ top: document.body.scrollHeight, behavior: 'instant' });
+  }
+
+  function renderSessionList() {
+    const listEl = document.getElementById('chatSessionList');
+    const badgeEl = document.getElementById('chatSessionCountBadge');
+    if (badgeEl) badgeEl.textContent = `${chatSessions.length}`;
+    if (!listEl) return;
+
+    listEl.innerHTML = chatSessions.map((session) => {
+      const isActive = session.id === activeSessionId;
+      return `
+        <div class="chat-session-item ${isActive ? 'active' : ''}" data-session-id="${session.id}">
+          <span class="session-title-text" title="${escapeHtml(session.title)}">💬 ${escapeHtml(session.title)}</span>
+          <div class="session-actions">
+            <button class="session-action-btn btn-export-kp" data-session-id="${session.id}" title="Export chat as .kp file">💾</button>
+            <button class="session-action-btn btn-rename" data-session-id="${session.id}" title="Rename chat">✏️</button>
+            <button class="session-action-btn btn-delete" data-session-id="${session.id}" title="Delete chat">🗑️</button>
+          </div>
+        </div>
+      `;
+    }).join('');
+
+    // Attach row click to switch session
+    listEl.querySelectorAll('.chat-session-item').forEach((item) => {
+      item.addEventListener('click', (e) => {
+        if (e.target.closest('.session-action-btn')) return;
+        const sid = item.getAttribute('data-session-id');
+        if (sid && sid !== activeSessionId) {
+          switchSession(sid);
+        }
+      });
+    });
+
+    // Attach rename buttons
+    listEl.querySelectorAll('.btn-rename').forEach((btn) => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const sid = btn.getAttribute('data-session-id');
+        renameSession(sid);
+      });
+    });
+
+    // Attach delete buttons
+    listEl.querySelectorAll('.btn-delete').forEach((btn) => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const sid = btn.getAttribute('data-session-id');
+        deleteSession(sid);
+      });
+    });
+
+    // Attach export .kp buttons
+    listEl.querySelectorAll('.btn-export-kp').forEach((btn) => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const sid = btn.getAttribute('data-session-id');
+        exportSessionAsKp(sid);
+      });
+    });
+  }
+
+  function switchSession(sessionId) {
+    activeSessionId = sessionId;
+    saveSessionsToStorage();
+    renderSessionList();
+    renderActiveSessionMessages();
+    switchTab('chat');
+  }
+
+  function createNewChat() {
+    const newSession = {
+      id: 'session_' + Date.now(),
+      title: 'New Conversation',
+      createdAt: Date.now(),
+      messages: []
+    };
+    chatSessions.unshift(newSession);
+    switchSession(newSession.id);
+    showToast('info', 'New Chat', 'Started a new conversation session.');
+  }
+
+  function renameSession(sessionId) {
+    const session = chatSessions.find(s => s.id === sessionId);
+    if (!session) return;
+    const newTitle = window.prompt("Enter new chat title:", session.title);
+    if (newTitle && newTitle.trim()) {
+      session.title = newTitle.trim();
+      saveSessionsToStorage();
+      renderSessionList();
+      showToast('success', 'Renamed', `Chat renamed to "${session.title}"`);
+    }
+  }
+
+  function deleteSession(sessionId) {
+    if (chatSessions.length <= 1) {
+      const session = chatSessions[0];
+      session.title = 'New Conversation';
+      session.messages = [];
+      saveSessionsToStorage();
+      renderSessionList();
+      renderActiveSessionMessages();
+      showToast('info', 'Chat Cleared', 'Conversation history cleared.');
+      return;
+    }
+
+    const session = chatSessions.find(s => s.id === sessionId);
+    const confirmed = window.confirm(`Delete "${session ? session.title : 'this chat'}"?`);
+    if (!confirmed) return;
+
+    chatSessions = chatSessions.filter(s => s.id !== sessionId);
+    if (activeSessionId === sessionId) {
+      activeSessionId = chatSessions[0].id;
+    }
+    saveSessionsToStorage();
+    renderSessionList();
+    renderActiveSessionMessages();
+    showToast('success', 'Chat Deleted', 'Conversation deleted.');
+  }
+
+  function exportSessionAsKp(sessionId = activeSessionId) {
+    const session = chatSessions.find(s => s.id === sessionId) || getActiveSession();
+    if (!session) return;
+
+    // Ingest all conversation text into kernel to ensure full phase state encoding
+    const sessionConversationText = session.messages.map(m => `${m.role.toUpperCase()}: ${m.content}`).join('\n\n');
+    if (sessionConversationText) {
+      kernel.ingestText(sessionConversationText, `Chat: ${session.title}`);
+    }
+
+    const cleanTitle = session.title.replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 30);
+    const blob = kernel.exportKnowledgePack(`Kalpana_Chat_${cleanTitle}`);
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `Kalpana_Chat_${cleanTitle}_${Date.now()}.kp`;
+    a.click();
+    URL.revokeObjectURL(url);
+    showToast('success', 'Chat Exported as .kp', `Exported "${session.title}" as a portable .kp file!`);
+  }
+
+  if (newChatBtn) {
+    newChatBtn.addEventListener('click', () => {
+      createNewChat();
+      if (sidebar) sidebar.classList.remove('mobile-open');
+      if (sidebarOverlay) sidebarOverlay.classList.remove('active');
+    });
+  }
+
+  if (exportChatKpBtn) {
+    exportChatKpBtn.addEventListener('click', () => {
+      exportSessionAsKp(activeSessionId);
+    });
+  }
+
+  // Initialize Chat Sessions
+  loadSessionsFromStorage();
+  renderSessionList();
+  renderActiveSessionMessages();
 
   function appendChatMessage(role, text, meta = null) {
+    // Remove welcome hero banner if present
+    const welcome = chatMessages.querySelector('.welcome-hero-banner');
+    if (welcome) welcome.remove();
+
     const bubble = document.createElement('div');
     bubble.className = `chat-bubble ${role}`;
     
@@ -437,6 +669,14 @@ document.addEventListener('DOMContentLoaded', async () => {
     appendChatMessage('user', text);
     conversationHistory.push({ role: "user", content: text });
 
+    const activeSession = getActiveSession();
+    activeSession.messages.push({ role: "user", content: text });
+    if (activeSession.title === 'New Conversation') {
+      activeSession.title = text.slice(0, 32) + (text.length > 32 ? '...' : '');
+      renderSessionList();
+    }
+    saveSessionsToStorage();
+
     const startT = performance.now();
 
     // 1. Ingest Prompt into Kalpana RIF Phase Kernel (2048 bands O(1) state)
@@ -450,10 +690,13 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (hasNeedle) {
       const top = res.matches[0];
       const answer = `🎯 [RESONANT INTERFERENCE DETECTED]: Found needle memory in 3M-token cache!\n\n${top.fullText}\n\nResonant Harmonic Peak: ${res.spectralPeak}`;
-      appendChatMessage('assistant', answer, {
+      const meta = {
         latency: (performance.now() - startT).toFixed(1),
         needleMatch: true
-      });
+      };
+      appendChatMessage('assistant', answer, meta);
+      activeSession.messages.push({ role: "assistant", content: answer, meta: meta });
+      saveSessionsToStorage();
       updateLiveTelemetryHeader(null, false);
       return;
     }
@@ -527,6 +770,12 @@ document.addEventListener('DOMContentLoaded', async () => {
         const tokPerSec = (tokenCount / Math.max(0.001, elapsedMs / 1000)).toFixed(1);
         updateLiveTelemetryHeader(142.5, false);
 
+        const meta = {
+          latency: elapsedMs.toFixed(1),
+          tokPerSec: tokPerSec,
+          isSmolLM: true
+        };
+
         const metaDiv = document.createElement('div');
         metaDiv.className = 'msg-meta';
         metaDiv.innerHTML = `
@@ -535,6 +784,8 @@ document.addEventListener('DOMContentLoaded', async () => {
           <span style="color:var(--cyan-400)">🧠 SmolLM2-360M (WebGPU)</span>
         `;
         assistantBubble.appendChild(metaDiv);
+        activeSession.messages.push({ role: "assistant", content: fullResponse, meta: meta });
+        saveSessionsToStorage();
         speakAssistantText(fullResponse);
         return;
       } catch (err) {
@@ -565,10 +816,13 @@ document.addEventListener('DOMContentLoaded', async () => {
       }
 
       const totalLatency = (performance.now() - startT).toFixed(1);
-      appendChatMessage('assistant', responseText, {
+      const meta = {
         latency: totalLatency,
         isSmolLM: false
-      });
+      };
+      appendChatMessage('assistant', responseText, meta);
+      activeSession.messages.push({ role: "assistant", content: responseText, meta: meta });
+      saveSessionsToStorage();
       speakAssistantText(responseText);
       updateLiveTelemetryHeader(null, false);
     }, 60);

@@ -23,7 +23,7 @@
   <link rel="apple-touch-icon" sizes="192x192" href="assets/icon-192.png">
 
   <!-- Stylesheet -->
-  <link rel="stylesheet" href="style.css?v=4.7.0">
+  <link rel="stylesheet" href="style.css?v=4.8.0">
 </head>
 <body>
 
@@ -38,7 +38,14 @@
         </div>
       </div>
 
-      <nav class="nav-menu">
+      <div style="padding: 12px 14px 0;">
+        <button id="newChatBtn" class="btn-new-chat">
+          <span style="font-size:1.15rem;font-weight:700;line-height:1;">+</span>
+          <span>New Chat</span>
+        </button>
+      </div>
+
+      <nav class="nav-menu" style="flex:0 0 auto;padding-bottom:10px;">
         <a href="#chat" class="nav-item active" data-tab="chat">
           <span class="nav-icon">💬</span>
           <span>Chat</span>
@@ -53,8 +60,19 @@
         </a>
       </nav>
 
+      <!-- Chat History Section -->
+      <div class="chat-history-sidebar">
+        <div class="chat-history-header">
+          <span>Recent Chats</span>
+          <span id="chatSessionCountBadge" class="badge badge-cyan" style="font-size:0.65rem;">1</span>
+        </div>
+        <div id="chatSessionList" class="chat-session-list">
+          <!-- Dynamically populated session items -->
+        </div>
+      </div>
+
       <!-- Architecture Specifications Sidebar Card -->
-      <div style="margin: 0 16px 16px; background: rgba(255,255,255,0.03); border: 1px solid var(--border-subtle); border-radius: 12px; padding: 12px 14px;">
+      <div style="margin: 12px 16px 14px; background: rgba(255,255,255,0.03); border: 1px solid var(--border-subtle); border-radius: 12px; padding: 12px 14px;">
         <div style="font-size: 0.72rem; color: var(--text-muted); font-family: var(--font-mono); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.05em;">Attention Engine</div>
         <div style="display:flex;align-items:center;gap:8px;">
           <span style="width:8px;height:8px;border-radius:50%;background:#34d399;display:inline-block;box-shadow:0 0 8px #34d399;"></span>
@@ -91,7 +109,11 @@
           <span style="font-family:var(--font-heading);font-weight:800;font-size:1.15rem;color:#fff;letter-spacing:-0.02em;">Kalpanā</span>
         </div>
 
-        <div style="display:flex;align-items:center;gap:12px;">
+        <div style="display:flex;align-items:center;gap:8px;">
+          <button id="exportChatKpBtn" class="btn-secondary" style="padding:6px 12px;font-size:0.78rem;height:34px;display:inline-flex;align-items:center;gap:6px;" title="Export current chat conversation & 2048-band phase state as .kp file">
+            <span>💾</span>
+            <span>Export Chat (.kp)</span>
+          </button>
           <div class="offline-pill" style="margin-bottom:0;padding:5px 10px;font-size:0.75rem;">
             <span class="pulse-dot"></span>
             <span>100% Offline</span>
@@ -444,8 +466,8 @@
   <div id="toastContainer"></div>
 
   <!-- Scripts -->
-  <script src="kalpana-phase-kernel.js?v=4.7.0"></script>
-  <script src="spectrum-visualizer.js?v=4.7.0"></script>
-  <script type="module" src="app.js?v=4.7.0"></script>
+  <script src="kalpana-phase-kernel.js?v=4.8.0"></script>
+  <script src="spectrum-visualizer.js?v=4.8.0"></script>
+  <script type="module" src="app.js?v=4.8.0"></script>
 </body>
 </html>
