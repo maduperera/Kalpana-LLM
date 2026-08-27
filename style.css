@@ -627,6 +627,35 @@ body::after {
   transition: all var(--transition-fast);
 }
 
+.input-field,
+input[type="text"],
+textarea {
+  background: rgba(13, 21, 41, 0.85);
+  border: 1px solid rgba(56, 189, 248, 0.25);
+  color: #fff;
+  font-family: var(--font-main);
+  font-size: 0.92rem;
+  border-radius: 10px;
+  padding: 10px 14px;
+  box-sizing: border-box;
+  transition: all var(--transition-fast);
+  outline: none;
+}
+
+.input-field:focus,
+input[type="text"]:focus,
+textarea:focus {
+  border-color: var(--cyan-400);
+  background: rgba(13, 21, 41, 0.95);
+  box-shadow: 0 0 16px rgba(56, 189, 248, 0.2);
+}
+
+.input-field::placeholder,
+input[type="text"]::placeholder,
+textarea::placeholder {
+  color: var(--text-muted);
+}
+
 .chat-input-bar:focus-within {
   border-color: var(--cyan-400);
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5), 0 0 20px rgba(56, 189, 248, 0.25);

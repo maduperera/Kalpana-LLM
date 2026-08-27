@@ -701,8 +701,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   }
 
-  // 9. Knowledge Pack (.kp) Ingestion & Preset Handlers
   const exportKpBtn = document.getElementById('exportKpBtn');
+  const importKpBtn = document.getElementById('importKpBtn');
+  const importKpFileInput = document.getElementById('importKpFileInput');
   const quickIngestBtn = document.getElementById('quickIngestBtn');
   const quickIngestText = document.getElementById('quickIngestText');
   const packDocTitle = document.getElementById('packDocTitle');
@@ -723,6 +724,24 @@ document.addEventListener('DOMContentLoaded', async () => {
         showToast('success', 'Document Ingested', `Ingested "${file.name}" (${res.tokens} tokens) into holographic field.`);
       };
       reader.readAsText(file);
+    });
+  }
+
+  if (importKpBtn && importKpFileInput) {
+    importKpBtn.addEventListener('click', () => importKpFileInput.click());
+    importKpFileInput.addEventListener('change', async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      try {
+        const meta = await kernel.importKnowledgePack(file);
+        renderDocumentList();
+        updateLiveTelemetryHeader();
+        showToast('success', 'Knowledge Pack Imported!', `Loaded "${meta.packName || file.name}" (${(meta.totalTokens || 0).toLocaleString()} tokens, ${(meta.documents || []).length} docs).`);
+      } catch (err) {
+        console.error('Failed to import .kp file:', err);
+        showToast('error', 'Import Failed', 'Invalid .kp file format or corrupt header.');
+      }
     });
   }
 
