@@ -34,7 +34,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   let isModelReady = false;
   const conversationHistory = [];
 
-  // 4. Live Telemetry Top Header Updater
+  // 4. Live Telemetry Top Header & Wheel Meter Updater
   function updateLiveTelemetryHeader() {
     const memEl = document.getElementById('headerMemoryVal');
     const tokEl = document.getElementById('headerTokenVal');
@@ -46,6 +46,27 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (tokEl) tokEl.textContent = `${kernel.totalTokensIngested.toLocaleString()} tok`;
     if (stdEl) stdEl.textContent = `${kernel.getStandardKvEquivalentGB()} GB`;
     if (bandLabel) bandLabel.textContent = `${kernel.bands} Bands`;
+
+    // Update Radial Wheel Meters
+    const rifVal = document.getElementById('rifGaugeVal');
+    if (rifVal) rifVal.textContent = memMB;
+
+    const stdGb = parseFloat(kernel.getStandardKvEquivalentGB()) || 0;
+    const savingsEl = document.getElementById('savingsGaugeVal');
+    const savingsTrack = document.getElementById('savingsGaugeTrack');
+    if (savingsEl) {
+      if (kernel.totalTokensIngested < 500) {
+        savingsEl.textContent = '750x';
+      } else {
+        const factor = Math.max(1, Math.round((stdGb * 1024) / parseFloat(memMB)));
+        savingsEl.textContent = `${factor}x`;
+        if (savingsTrack) {
+          const circumference = 251.2;
+          const pct = Math.min(1, factor / 750);
+          savingsTrack.style.strokeDashoffset = (circumference * (1 - pct)).toString();
+        }
+      }
+    }
   }
   updateLiveTelemetryHeader();
 
