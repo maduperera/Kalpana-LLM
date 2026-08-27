@@ -118,7 +118,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const KNOWLEDGE_BASE = [
     // --- Inventors & Scientists ---
     {
-      keys: ['thomas edison', 'thomas alva', 'edison', 'light bulb', 'phonograph'],
+      keys: ['thomas edison', 'thomas alva', 'alva edison', 'alwa edison', 'alwa edission', 'edison', 'edisson', 'light bulb', 'phonograph'],
       answer: `💡 **Thomas Alva Edison (1847–1931)** was an American inventor widely regarded as one of the greatest inventors in history.\n\n**Key Inventions:**\n- **Incandescent Light Bulb (1879):** Made electric light commercially viable for homes and businesses.\n- **Phonograph (1877):** First device ever to record and replay sound.\n- **Motion Picture Camera (Kinetoscope, 1891):** Pioneered filmmaking technology.\n- **Electric Power Grid (1882):** Built the world's first industrial power station in Manhattan, New York.\n\nEdison held **1,093 US patents** — the most by any individual in history at the time. His Menlo Park, New Jersey lab was the world's first industrial R&D laboratory.\n\n*"Genius is 1% inspiration and 99% perspiration."* — Thomas Edison`
     },
     {
