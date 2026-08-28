@@ -818,50 +818,51 @@ async function initKalpanaApp() {
       return;
     }
 
+    // Stop words to prevent matching common English grammar particles
+    const STOP_WORDS = new Set([
+      'who', 'what', 'where', 'when', 'why', 'how', 'is', 'are', 'was', 'were', 
+      'the', 'a', 'an', 'in', 'on', 'at', 'to', 'for', 'of', 'and', 'or', 
+      'do', 'does', 'did', 'can', 'could', 'should', 'would', 'tell', 'me', 
+      'about', 'explain', 'please', 'with', 'from', 'this', 'that', 'these', 
+      'those', 'i', 'you', 'he', 'she', 'it', 'we', 'they', 'my', 'your'
+    ]);
+
     // Check if query matches content from active Knowledge Pack
     const activePack = activeKpId ? knowledgePacks.find(p => p.id === activeKpId) : null;
     let matchedKnowledgeContext = '';
     let isKnowledgePackMatch = false;
 
     if (activePack && activePack.documents && activePack.documents.length > 0) {
-      const queryWords = text.toLowerCase().split(/\s+/).filter(w => w.length > 1);
+      const queryWords = text.toLowerCase().replace(/[^a-z0-9\s]/g, ' ').split(/\s+/).filter(w => w.length > 2 && !STOP_WORDS.has(w));
       
-      const rankedDocs = activePack.documents.map(doc => {
-        let matchScore = 0;
-        const lowerDoc = (doc.content || '').toLowerCase();
-        const lowerTitle = (doc.title || '').toLowerCase();
-        for (const w of queryWords) {
-          if (lowerDoc.includes(w)) matchScore += 1.5;
-          if (lowerTitle.includes(w)) matchScore += 2.0;
-        }
-        return { doc, matchScore };
-      }).sort((a, b) => b.matchScore - a.matchScore);
+      if (queryWords.length > 0) {
+        const rankedDocs = activePack.documents.map(doc => {
+          let matchScore = 0;
+          const cleanDoc = sanitizeText(doc.content || '').toLowerCase();
+          for (const w of queryWords) {
+            // Count occurrences of meaningful search terms in document body
+            const matches = cleanDoc.split(w).length - 1;
+            if (matches > 0) matchScore += Math.min(5, matches);
+          }
+          return { doc, matchScore };
+        }).filter(d => d.matchScore > 0).sort((a, b) => b.matchScore - a.matchScore);
 
-      // Only trigger Knowledge Pack context augmentation if there is an actual semantic/keyword match
-      if (rankedDocs[0].matchScore > 0 || (res.matches && res.matches.length > 0 && res.matches[0].score > 0.8)) {
-        isKnowledgePackMatch = true;
-        let selectedDocs = [];
-        if (rankedDocs[0].matchScore > 0) {
-          selectedDocs = rankedDocs.filter(d => d.matchScore > 0).slice(0, 2).map(d => d.doc);
-        } else if (res.matches && res.matches.length > 0) {
-          const matchedTitles = new Set(res.matches.map(m => m.title));
-          selectedDocs = activePack.documents.filter(d => matchedTitles.has(d.title)).slice(0, 2);
-          if (selectedDocs.length === 0) selectedDocs = activePack.documents.slice(0, 2);
-        }
-
-        // Extract the most relevant sentences around query words rather than huge raw documents
-        matchedKnowledgeContext = selectedDocs.map(d => {
-          const cleanDocContent = sanitizeText(d.content);
-          const sentences = cleanDocContent.split(/(?<=[.?!])\s+/).filter(s => s.trim().length > 5);
+        if (rankedDocs.length > 0 && rankedDocs[0].matchScore > 0) {
+          isKnowledgePackMatch = true;
+          const topDoc = rankedDocs[0].doc;
+          const cleanDocContent = sanitizeText(topDoc.content);
+          const sentences = cleanDocContent.split(/(?<=[.?!])\s+/).filter(s => s.trim().length > 10);
+          
           const relevantSentences = sentences.filter(s => {
             const lower = s.toLowerCase();
             return queryWords.some(w => lower.includes(w));
           });
-          const excerpt = relevantSentences.length > 0 
-            ? relevantSentences.slice(0, 4).join(' ') 
-            : sentences.slice(0, 3).join(' ');
-          return `--- Document: ${d.title} ---\n${excerpt}`;
-        }).join('\n\n');
+          
+          matchedKnowledgeContext = (relevantSentences.length > 0 
+            ? relevantSentences.slice(0, 4) 
+            : sentences.slice(0, 3)
+          ).join(' ');
+        }
       }
     }
 
@@ -878,42 +879,26 @@ async function initKalpanaApp() {
       let fullResponse = '';
       let tokenCount = 0;
 
-      // Keep only last 4 turns for WebGPU context window stability
-      const recentHistory = conversationHistory.slice(-4);
-
       try {
-        const systemPrompt = (isKnowledgePackMatch && activePack)
-          ? `You are Kalpanā, an intelligent and helpful AI assistant. An active Knowledge Pack titled "${activePack.name}" has been loaded into your memory.\n\n` +
-            `[ACTIVE KNOWLEDGE PACK RELEVANT CONTENT]:\n${matchedKnowledgeContext}\n\n` +
-            `Instructions:\n` +
-            `1. Answer the user's question accurately using the Knowledge Pack content above.\n` +
-            `2. If the user asks about an entity, person, or fact that is NOT mentioned in the Knowledge Pack, clearly state that it is not found in "${activePack.name}" and provide what you know from general knowledge.\n` +
-            `3. Never invent facts not present in the provided documents.`
-          : `You are Kalpanā, a helpful, intelligent, and versatile AI assistant. Answer the user's questions clearly, accurately, and helpfully on any topic.`;
+        const systemPrompt = isKnowledgePackMatch
+          ? `You are Kalpanā, a concise and factual AI assistant. Answer the user's question directly and concisely based on the provided reference context. Do not repeat the context or make up unmentioned facts.`
+          : `You are Kalpanā, a helpful and direct AI assistant. Answer the user's questions clearly, accurately, and concisely.`;
 
-        let completion;
-        try {
-          completion = await webllmEngine.chat.completions.create({
-            messages: [
-              { role: "system", content: systemPrompt },
-              ...recentHistory
-            ],
-            stream: true,
-            temperature: 0.6,
-            max_tokens: 512
-          });
-        } catch (ctxErr) {
-          console.warn('Context error in WebLLM, retrying with single prompt:', ctxErr);
-          completion = await webllmEngine.chat.completions.create({
-            messages: [
-              { role: "system", content: systemPrompt },
-              { role: "user", content: text }
-            ],
-            stream: true,
-            temperature: 0.6,
-            max_tokens: 512
-          });
-        }
+        const userPrompt = (isKnowledgePackMatch && matchedKnowledgeContext)
+          ? `Reference information:\n${matchedKnowledgeContext}\n\nQuestion: ${text}\nAnswer the question directly and concisely:`
+          : text;
+
+        const completion = await webllmEngine.chat.completions.create({
+          messages: [
+            { role: "system", content: systemPrompt },
+            { role: "user", content: userPrompt }
+          ],
+          stream: true,
+          temperature: 0.2,
+          presence_penalty: 0.5,
+          frequency_penalty: 0.5,
+          max_tokens: 280
+        });
 
         for await (const chunk of completion) {
           const delta = chunk.choices[0]?.delta?.content || '';
