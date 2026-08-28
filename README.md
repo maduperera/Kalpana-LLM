@@ -57,10 +57,9 @@ Standard Transformers exceed WebGPU/browser memory limits (2GB–4GB max per tab
 ## 🛡️ Intellectual Property & Security Notice
 - **Patent Pending:** Sri Lanka Patent Application No. LK/P/1/24089
 - **Proprietary Technology by Vijñāna AI.** All rights reserved.
-- Proprietary server-side training kernels, mathematical formulations, and backend `core.py` sources are maintained in private secure repositories and excluded from this public distribution.
 
 ---
 
 ## 🌐 Live Deployment
-- **GitHub Pages App**: [https://maduperera.github.io/Kalpana-LLM/](https://maduperera.github.io/Kalpana-LLM/)
+- **App**: [https://maduperera.github.io/Kalpana-LLM/](https://maduperera.github.io/Kalpana-LLM/)
 - **Repository**: [https://github.com/maduperera/Kalpana-LLM](https://github.com/maduperera/Kalpana-LLM)
