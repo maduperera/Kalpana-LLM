@@ -129,7 +129,7 @@ class SpectrumVisualizer {
     ctx.font = '11px "JetBrains Mono", monospace';
     ctx.fillText(`HARMONIC BANDS: 1024 | RESONANT PEAK: ${maxVal.toFixed(3)} | SAMPLING: 60 FPS`, 14, 20);
     ctx.fillStyle = 'rgba(52, 211, 153, 0.9)';
-    ctx.fillText(`● PHASE INTERFERENCE ACTIVE`, w - 210, 20);
+    ctx.fillText(`● INTERFERENCE ACTIVE`, w - 175, 20);
   }
 }
 
