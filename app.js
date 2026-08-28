@@ -837,23 +837,31 @@ async function initKalpanaApp() {
         return { doc, matchScore };
       }).sort((a, b) => b.matchScore - a.matchScore);
 
-      const totalWords = activePack.documents.reduce((acc, d) => acc + (d.content || '').split(/\s+/).length, 0);
-
       // Only trigger Knowledge Pack context augmentation if there is an actual semantic/keyword match
-      if (rankedDocs[0].matchScore > 0 || (res.matches && res.matches.length > 0)) {
+      if (rankedDocs[0].matchScore > 0 || (res.matches && res.matches.length > 0 && res.matches[0].score > 0.8)) {
         isKnowledgePackMatch = true;
         let selectedDocs = [];
         if (rankedDocs[0].matchScore > 0) {
-          selectedDocs = rankedDocs.filter(d => d.matchScore > 0).slice(0, 3).map(d => d.doc);
+          selectedDocs = rankedDocs.filter(d => d.matchScore > 0).slice(0, 2).map(d => d.doc);
         } else if (res.matches && res.matches.length > 0) {
           const matchedTitles = new Set(res.matches.map(m => m.title));
-          selectedDocs = activePack.documents.filter(d => matchedTitles.has(d.title)).slice(0, 3);
-          if (selectedDocs.length === 0) selectedDocs = activePack.documents.slice(0, 3);
-        } else {
-          selectedDocs = activePack.documents.slice(0, 3);
+          selectedDocs = activePack.documents.filter(d => matchedTitles.has(d.title)).slice(0, 2);
+          if (selectedDocs.length === 0) selectedDocs = activePack.documents.slice(0, 2);
         }
 
-        matchedKnowledgeContext = selectedDocs.map(d => `--- Document: ${d.title} ---\n${d.content.slice(0, 2500)}`).join('\n\n');
+        // Extract the most relevant sentences around query words rather than huge raw documents
+        matchedKnowledgeContext = selectedDocs.map(d => {
+          const cleanDocContent = sanitizeText(d.content);
+          const sentences = cleanDocContent.split(/(?<=[.?!])\s+/).filter(s => s.trim().length > 5);
+          const relevantSentences = sentences.filter(s => {
+            const lower = s.toLowerCase();
+            return queryWords.some(w => lower.includes(w));
+          });
+          const excerpt = relevantSentences.length > 0 
+            ? relevantSentences.slice(0, 4).join(' ') 
+            : sentences.slice(0, 3).join(' ');
+          return `--- Document: ${d.title} ---\n${excerpt}`;
+        }).join('\n\n');
       }
     }
 
@@ -876,7 +884,7 @@ async function initKalpanaApp() {
       try {
         const systemPrompt = (isKnowledgePackMatch && activePack)
           ? `You are Kalpanā, an intelligent and helpful AI assistant. An active Knowledge Pack titled "${activePack.name}" has been loaded into your memory.\n\n` +
-            `[ACTIVE KNOWLEDGE PACK CONTENT]:\n${matchedKnowledgeContext}\n\n` +
+            `[ACTIVE KNOWLEDGE PACK RELEVANT CONTENT]:\n${matchedKnowledgeContext}\n\n` +
             `Instructions:\n` +
             `1. Answer the user's question accurately using the Knowledge Pack content above.\n` +
             `2. If the user asks about an entity, person, or fact that is NOT mentioned in the Knowledge Pack, clearly state that it is not found in "${activePack.name}" and provide what you know from general knowledge.\n` +
@@ -961,8 +969,8 @@ async function initKalpanaApp() {
     setTimeout(() => {
       let responseText = '';
       if (isKnowledgePackMatch && activePack) {
-        responseText = `📦 **[Knowledge Pack: ${escapeHtml(activePack.name)}]**\n\n` +
-          `Based on your activated Knowledge Pack documents:\n\n${matchedKnowledgeContext.slice(0, 900)}...`;
+        const directAnswer = cleanDirectAnswer(matchedKnowledgeContext, text);
+        responseText = `📦 **[Knowledge Pack: ${escapeHtml(activePack.name)}]**\n\n${directAnswer}`;
       } else {
         responseText = getOfflineKnowledgeResponse(text);
       }
@@ -1117,6 +1125,101 @@ async function initKalpanaApp() {
     }
   }
 
+  // --- Text Extraction & Sanitization Helpers ---
+  function sanitizeText(raw) {
+    if (!raw) return '';
+    return raw
+      .replace(/%PDF-[0-9.]+[\s\S]*?endobj/gi, ' ') // Strip raw PDF headers/objects
+      .replace(/<<[\s\S]*?>>/g, ' ')               // Strip PDF dictionary tags
+      .replace(/\b(obj|endobj|stream|endstream|xref|trailer|startxref|FlateDecode|Linearized|DecodeParms)\b/gi, ' ')
+      .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F-\x9F]/g, ' ') // Strip binary control codes
+      .replace(/[^\x20-\x7E\t\n\r\u00A0-\u024F\u1E00-\u1EFF]/g, ' ') // Keep printable characters
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+
+  async function extractTextFromFile(file) {
+    if (!file) return '';
+    const isPdf = file.name.toLowerCase().endsWith('.pdf') || file.type === 'application/pdf';
+
+    if (isPdf) {
+      // 1. Try PDF.js for full page text rendering
+      if (window.pdfjsLib) {
+        try {
+          const arrayBuffer = await file.arrayBuffer();
+          window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+          const loadingTask = window.pdfjsLib.getDocument({ data: arrayBuffer });
+          const pdf = await loadingTask.promise;
+          let fullText = '';
+          for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+            const page = await pdf.getPage(pageNum);
+            const textContent = await page.getTextContent();
+            const pageStrings = textContent.items.map(item => item.str).filter(s => s && s.trim().length > 0);
+            if (pageStrings.length > 0) {
+              fullText += `Page ${pageNum}: ` + pageStrings.join(' ') + '\n\n';
+            }
+          }
+          const cleaned = sanitizeText(fullText);
+          if (cleaned.length > 20) return cleaned;
+        } catch (pdfErr) {
+          console.warn('PDF.js parse warning, trying fallback stream parser:', pdfErr);
+        }
+      }
+
+      // 2. Fallback stream parser for PDF text operators
+      try {
+        const arrayBuffer = await file.arrayBuffer();
+        const rawString = new TextDecoder('utf-8', { fatal: false }).decode(new Uint8Array(arrayBuffer));
+        const matches = rawString.match(/\(([^)]{2,})\)\s*Tj/g) || [];
+        const extracted = matches.map(m => m.replace(/^[(\s]+|[)\s*Tj]+$/g, '')).join(' ');
+        if (extracted.trim().length > 20) {
+          return sanitizeText(extracted);
+        }
+        // Fallback to printable text runs
+        const words = rawString.match(/[A-Za-z0-9,.:;?!'"\-\s]{4,}/g) || [];
+        const filtered = words.filter(w => !w.includes('obj') && !w.includes('endobj') && !w.includes('stream') && !w.includes('xref'));
+        return sanitizeText(filtered.join(' '));
+      } catch (streamErr) {
+        console.warn('Stream extraction warning:', streamErr);
+      }
+    }
+
+    // Default plain text reader for .txt, .md, .csv, .json, .py, .js, .html
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const raw = e.target.result || '';
+        resolve(sanitizeText(raw));
+      };
+      reader.onerror = () => resolve('');
+      reader.readAsText(file);
+    });
+  }
+
+  function cleanDirectAnswer(context, query) {
+    if (!context) return 'No relevant information found in the active Knowledge Pack.';
+    
+    // Split into sentences / paragraphs
+    const sentences = context
+      .split(/(?<=[.?!])\s+|\n\n+/)
+      .map(s => s.trim())
+      .filter(s => s.length > 10 && !s.startsWith('--- Document:'));
+    
+    const queryTerms = query.toLowerCase().split(/\s+/).filter(t => t.length > 2);
+    
+    // Find matching sentences
+    const matched = sentences.filter(s => {
+      const lower = s.toLowerCase();
+      return queryTerms.some(term => lower.includes(term));
+    });
+
+    if (matched.length > 0) {
+      return matched.slice(0, 4).join(' ');
+    }
+
+    return sentences.slice(0, 3).join(' ');
+  }
+
   // File Attachments Ingestion
   if (chatAttachBtn && chatAttachmentInput) {
     chatAttachBtn.addEventListener('click', (e) => {
@@ -1125,23 +1228,26 @@ async function initKalpanaApp() {
       chatAttachmentInput.click();
     });
 
-    chatAttachmentInput.addEventListener('change', (e) => {
+    chatAttachmentInput.addEventListener('change', async (e) => {
       const file = e.target.files[0];
       if (!file) return;
 
-      const reader = new FileReader();
-      reader.onload = async (evt) => {
-        const textContent = evt.target.result;
-        const res = await kernel.ingestTextAsync(textContent, file.name);
-        if (attachedFileChip && attachedFileName) {
-          attachedFileName.textContent = `📎 ${file.name} (${res.tokens.toLocaleString()} tokens)`;
-          attachedFileChip.style.display = 'inline-flex';
-        }
-        updateLiveTelemetryHeader();
-        renderDocumentList();
-        showToast('success', 'File Attached & Ingested', `Encoded "${file.name}" (${res.tokens.toLocaleString()} tok) into 2048-band phase memory in ${res.timeMs.toFixed(1)}ms.`);
-      };
-      reader.readAsText(file);
+      showToast('info', 'Processing File...', `Extracting clean text from "${file.name}"...`);
+      const textContent = await extractTextFromFile(file);
+
+      if (!textContent || textContent.trim().length === 0) {
+        showToast('error', 'Empty Content', `Could not extract text from "${file.name}".`);
+        return;
+      }
+
+      const res = await kernel.ingestTextAsync(textContent, file.name);
+      if (attachedFileChip && attachedFileName) {
+        attachedFileName.textContent = `📎 ${file.name} (${res.tokens.toLocaleString()} tokens)`;
+        attachedFileChip.style.display = 'inline-flex';
+      }
+      updateLiveTelemetryHeader();
+      renderDocumentList();
+      showToast('success', 'File Attached & Ingested', `Encoded "${file.name}" (${res.tokens.toLocaleString()} tok) into 2048-band phase memory in ${res.timeMs.toFixed(1)}ms.`);
     });
   }
 
@@ -1224,6 +1330,19 @@ async function initKalpanaApp() {
       const saved = localStorage.getItem(KP_STORAGE_KEY);
       if (saved) {
         knowledgePacks = JSON.parse(saved);
+        // Automatically sanitize any legacy binary PDF artifacts in existing packs
+        knowledgePacks.forEach(pack => {
+          if (pack.documents) {
+            pack.documents.forEach(doc => {
+              if (doc.content && (doc.content.includes('%PDF-') || doc.content.includes('/FlateDecode') || doc.content.includes('endobj') || doc.content.includes('Linearized'))) {
+                doc.content = sanitizeText(doc.content);
+                doc.sample = doc.content.slice(0, 120) + '...';
+                doc.tokenCount = Math.max(1, Math.round(doc.content.split(/\s+/).length * 1.3));
+              }
+            });
+            pack.totalTokens = pack.documents.reduce((sum, d) => sum + (d.tokenCount || 0), 0);
+          }
+        });
       }
     } catch (e) {
       console.warn('Failed to parse saved knowledge packs:', e);
@@ -1800,46 +1919,45 @@ async function initKalpanaApp() {
 
   if (kpAddDocFileBtn && kpAddDocFileInput) {
     kpAddDocFileBtn.addEventListener('click', () => kpAddDocFileInput.click());
-    kpAddDocFileInput.addEventListener('change', (e) => {
+    kpAddDocFileInput.addEventListener('change', async (e) => {
       const file = e.target.files[0];
       if (!file || !currentlyOpenKpId) return;
 
-      const reader = new FileReader();
-      reader.onload = async (evt) => {
-        const text = evt.target.result;
-        if (!text || !text.trim()) {
-          showToast('error', 'Empty File', 'Uploaded file is empty.');
-          return;
-        }
+      const progressEl = document.getElementById('kpIngestProgressContainer');
+      const statusEl = document.getElementById('kpIngestProgressStatus');
+      const tokensEl = document.getElementById('kpIngestProgressTokens');
+      const barEl = document.getElementById('kpIngestProgressBar');
 
-        const progressEl = document.getElementById('kpIngestProgressContainer');
-        const statusEl = document.getElementById('kpIngestProgressStatus');
-        const tokensEl = document.getElementById('kpIngestProgressTokens');
-        const barEl = document.getElementById('kpIngestProgressBar');
+      if (progressEl) progressEl.style.display = 'block';
+      if (barEl) barEl.style.width = '0%';
+      if (statusEl) statusEl.textContent = `Extracting & Parsing "${file.name}"...`;
+      if (tokensEl) tokensEl.textContent = 'Preparing...';
+      if (kpAddDocFileBtn) kpAddDocFileBtn.disabled = true;
 
-        if (progressEl) progressEl.style.display = 'block';
-        if (barEl) barEl.style.width = '0%';
-        if (statusEl) statusEl.textContent = `Reading & Ingesting "${file.name}"...`;
-        if (tokensEl) tokensEl.textContent = 'Preparing...';
-        if (kpAddDocFileBtn) kpAddDocFileBtn.disabled = true;
+      const text = await extractTextFromFile(file);
 
-        const progressCallback = (p) => {
-          if (statusEl) statusEl.textContent = `Ingesting "${p.docTitle || file.name}"... (${p.throughput || 0} tok/s)`;
-          if (tokensEl) tokensEl.textContent = `${p.tokensIngested.toLocaleString()} / ${p.totalTokens.toLocaleString()} tokens (${p.percent}%)`;
-          if (barEl) barEl.style.width = `${p.percent}%`;
-        };
-
-        await addDocumentToPack(currentlyOpenKpId, file.name, text, progressCallback);
-
-        if (progressEl) {
-          if (barEl) barEl.style.width = '100%';
-          if (statusEl) statusEl.textContent = '✅ Ingestion complete!';
-          setTimeout(() => { progressEl.style.display = 'none'; }, 600);
-        }
+      if (!text || !text.trim()) {
+        if (progressEl) progressEl.style.display = 'none';
         if (kpAddDocFileBtn) kpAddDocFileBtn.disabled = false;
-        kpAddDocFileInput.value = '';
+        showToast('error', 'Empty / Unreadable File', `Could not extract text from "${file.name}".`);
+        return;
+      }
+
+      const progressCallback = (p) => {
+        if (statusEl) statusEl.textContent = `Ingesting "${p.docTitle || file.name}"... (${p.throughput || 0} tok/s)`;
+        if (tokensEl) tokensEl.textContent = `${p.tokensIngested.toLocaleString()} / ${p.totalTokens.toLocaleString()} tokens (${p.percent}%)`;
+        if (barEl) barEl.style.width = `${p.percent}%`;
       };
-      reader.readAsText(file);
+
+      await addDocumentToPack(currentlyOpenKpId, file.name, text, progressCallback);
+
+      if (progressEl) {
+        if (barEl) barEl.style.width = '100%';
+        if (statusEl) statusEl.textContent = '✅ Ingestion complete!';
+        setTimeout(() => { progressEl.style.display = 'none'; }, 600);
+      }
+      if (kpAddDocFileBtn) kpAddDocFileBtn.disabled = false;
+      kpAddDocFileInput.value = '';
     });
   }
 
