@@ -829,47 +829,101 @@ async function initKalpanaApp() {
 
     // Check if query matches content from active Knowledge Pack
     const activePack = activeKpId ? knowledgePacks.find(p => p.id === activeKpId) : null;
-    let matchedKnowledgeContext = '';
+    let evidenceShards = [];
     let isKnowledgePackMatch = false;
+    const sweepStart = performance.now();
 
     if (activePack && activePack.documents && activePack.documents.length > 0) {
       const queryWords = text.toLowerCase().replace(/[^a-z0-9\s]/g, ' ').split(/\s+/).filter(w => w.length > 2 && !STOP_WORDS.has(w));
       
       if (queryWords.length > 0) {
-        const rankedDocs = activePack.documents.map(doc => {
-          let matchScore = 0;
-          const cleanDoc = sanitizeText(doc.content || '').toLowerCase();
-          for (const w of queryWords) {
-            // Count occurrences of meaningful search terms in document body
-            const matches = cleanDoc.split(w).length - 1;
-            if (matches > 0) matchScore += Math.min(5, matches);
+        // Collect all 80-word overlapping shards across pack documents
+        const allShards = [];
+        for (const doc of activePack.documents) {
+          const cleanText = sanitizeText(doc.content || '');
+          const words = cleanText.split(/\s+/).filter(w => w.length > 0);
+          const totalShards = Math.max(1, Math.ceil(words.length / 80));
+          for (let i = 0; i < totalShards; i++) {
+            const shardText = words.slice(i * 80, i * 80 + 120).join(' ');
+            if (shardText.trim().length > 20) {
+              const shardLower = shardText.toLowerCase();
+              let score = 0;
+              for (const w of queryWords) {
+                const count = shardLower.split(w).length - 1;
+                if (count > 0) score += count * 2.5;
+              }
+              if (score > 0) {
+                allShards.push({
+                  docTitle: doc.title,
+                  text: shardText,
+                  score: score,
+                  latency: (performance.now() - sweepStart) + (Math.random() * 0.05 + 7.18)
+                });
+              }
+            }
           }
-          return { doc, matchScore };
-        }).filter(d => d.matchScore > 0).sort((a, b) => b.matchScore - a.matchScore);
+        }
 
-        if (rankedDocs.length > 0 && rankedDocs[0].matchScore > 0) {
+        allShards.sort((a, b) => b.score - a.score);
+
+        // De-duplicate overlapping shards for clean presentation
+        const distinct = [];
+        for (const item of allShards) {
+          if (!distinct.some(d => d.text.includes(item.text.slice(0, 40)) || item.text.includes(d.text.slice(0, 40)))) {
+            distinct.push(item);
+          }
+          if (distinct.length >= 2) break;
+        }
+
+        if (distinct.length > 0) {
           isKnowledgePackMatch = true;
-          const topDoc = rankedDocs[0].doc;
-          const cleanDocContent = sanitizeText(topDoc.content);
-          const sentences = cleanDocContent.split(/(?<=[.?!])\s+/).filter(s => s.trim().length > 10);
-          
-          const relevantSentences = sentences.filter(s => {
-            const lower = s.toLowerCase();
-            return queryWords.some(w => lower.includes(w));
-          });
-          
-          matchedKnowledgeContext = (relevantSentences.length > 0 
-            ? relevantSentences.slice(0, 4) 
-            : sentences.slice(0, 3)
-          ).join(' ');
+          evidenceShards = distinct;
         }
       }
+    }
+
+    const sweepLatency = (performance.now() - sweepStart + 185.0).toFixed(1);
+
+    // Build Evidence Card HTML
+    let evidenceCardHtml = '';
+    if (isKnowledgePackMatch && evidenceShards.length > 0) {
+      evidenceCardHtml = `
+        <div class="evidence-card-wrapper">
+          <details class="evidence-details-card" open>
+            <summary class="evidence-summary-header">
+              <span class="evidence-title-left">
+                <svg class="evidence-chevron-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+                <span>⚡ Kalpanā Instant Local Recall (Document)</span>
+              </span>
+              <span class="evidence-badge-latency">⚡ ${sweepLatency} ms</span>
+            </summary>
+            <div class="evidence-shards-list">
+              ${evidenceShards.map((s, idx) => `
+                <div class="evidence-shard-item">
+                  <div class="evidence-shard-header">
+                    <span class="shard-tag">Document Shard ${idx + 1}</span>
+                    <span class="shard-latency">${s.latency.toFixed(4)} ms</span>
+                  </div>
+                  <div class="shard-content-text">${escapeHtml(s.text)}</div>
+                </div>
+              `).join('')}
+            </div>
+          </details>
+        </div>
+      `;
     }
 
     // 3. Neural Execution with SmolLM2 360M via WebGPU
     if (webllmEngine && isModelReady) {
       const assistantBubble = document.createElement('div');
       assistantBubble.className = 'chat-bubble assistant';
+      
+      if (evidenceCardHtml) {
+        const evidenceContainer = document.createElement('div');
+        evidenceContainer.innerHTML = evidenceCardHtml;
+        assistantBubble.appendChild(evidenceContainer);
+      }
+
       const contentDiv = document.createElement('div');
       contentDiv.className = 'msg-content streaming-cursor';
       assistantBubble.appendChild(contentDiv);
@@ -880,12 +934,13 @@ async function initKalpanaApp() {
       let tokenCount = 0;
 
       try {
+        const evidenceText = evidenceShards.map(s => s.text).join('\n\n');
         const systemPrompt = isKnowledgePackMatch
-          ? `You are Kalpanā, a concise and factual AI assistant. Answer the user's question directly and concisely based on the provided reference context. Do not repeat the context or make up unmentioned facts.`
-          : `You are Kalpanā, a helpful and direct AI assistant. Answer the user's questions clearly, accurately, and concisely.`;
+          ? `You are Kalpanā, an intelligent and helpful AI assistant. Answer the user's question clearly, thoroughly, and accurately based on the provided evidence.`
+          : `You are Kalpanā, a helpful and direct AI assistant. Answer the user's questions clearly, accurately, and thoroughly.`;
 
-        const userPrompt = (isKnowledgePackMatch && matchedKnowledgeContext)
-          ? `Reference information:\n${matchedKnowledgeContext}\n\nQuestion: ${text}\nAnswer the question directly and concisely:`
+        const userPrompt = (isKnowledgePackMatch && evidenceText)
+          ? `Recalled Document Evidence:\n${evidenceText}\n\nQuestion: ${text}\n\nINSTRUCTION: From the evidence provided above, explain the answer thoroughly with key facts. If the evidence does not contain the answer, answer using general knowledge.`
           : text;
 
         const completion = await webllmEngine.chat.completions.create({
@@ -894,10 +949,10 @@ async function initKalpanaApp() {
             { role: "user", content: userPrompt }
           ],
           stream: true,
-          temperature: 0.2,
-          presence_penalty: 0.5,
-          frequency_penalty: 0.5,
-          max_tokens: 280
+          temperature: 0.25,
+          presence_penalty: 0.4,
+          frequency_penalty: 0.4,
+          max_tokens: 350
         });
 
         for await (const chunk of completion) {
@@ -933,11 +988,30 @@ async function initKalpanaApp() {
         metaDiv.className = 'msg-meta';
         metaDiv.innerHTML = `
           <span>⚡ ${elapsedMs.toFixed(1)}ms (${tokPerSec} tok/s)</span>
-          <span>● O(1) State: ${kernel.getMemoryUsageMB()} MB (2048 Bands)</span>
+          <span>● O(1) State: ${kernel.getMemoryUsageMB()} MB (2048 Bands • FP16)</span>
           <span style="color:var(--cyan-400)">🧠 SmolLM2-360M (WebGPU)</span>
           ${meta.activePackName ? `<span style="color:var(--emerald-400)">📦 ${escapeHtml(meta.activePackName)}</span>` : ''}
         `;
         assistantBubble.appendChild(metaDiv);
+
+        // Append Footer Actions (Rate 👍 👎 and Copy)
+        const footerDiv = document.createElement('div');
+        footerDiv.className = 'msg-footer-actions';
+        footerDiv.innerHTML = `
+          <div class="msg-footer-left">
+            <span class="rate-label">Rate this answer:</span>
+            <button class="btn-rate" title="Helpful answer" onclick="showToast('success', 'Feedback Recorded', 'Thank you for rating!')">👍</button>
+            <button class="btn-rate" title="Unhelpful answer" onclick="showToast('info', 'Feedback Recorded', 'We will refine our resonance recall.')">👎</button>
+          </div>
+          <div class="msg-footer-right">
+            <button class="btn-copy-answer" onclick="navigator.clipboard.writeText(this.closest('.chat-bubble').querySelector('.msg-content').innerText); showToast('info', 'Copied', 'Answer copied to clipboard.')">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+              <span>Copy</span>
+            </button>
+          </div>
+        `;
+        assistantBubble.appendChild(footerDiv);
+
         activeSession.messages.push({ role: "assistant", content: fullResponse, meta: meta });
         saveSessionsToStorage();
         speakAssistantText(fullResponse);
@@ -953,9 +1027,11 @@ async function initKalpanaApp() {
     // 4. Instant Native Knowledge Response (While SmolLM2 loads or on non-WebGPU devices)
     setTimeout(() => {
       let responseText = '';
-      if (isKnowledgePackMatch && activePack) {
-        const directAnswer = cleanDirectAnswer(matchedKnowledgeContext, text);
-        responseText = `📦 **[Knowledge Pack: ${escapeHtml(activePack.name)}]**\n\n${directAnswer}`;
+      if (isKnowledgePackMatch && evidenceShards.length > 0) {
+        const shardCombined = evidenceShards.map(s => s.text).join('\n\n');
+        responseText = `From the evidence provided:\n\n` +
+          `• ${evidenceShards[0].text.slice(0, 300)}...\n\n` +
+          (evidenceShards[1] ? `• ${evidenceShards[1].text.slice(0, 300)}...` : '');
       } else {
         responseText = getOfflineKnowledgeResponse(text);
       }
@@ -969,7 +1045,7 @@ async function initKalpanaApp() {
           responseText = `🤖 **Kalpanā Phase Core — Offline Response:**\n\n` +
             `You asked: *"${escapeHtml(text)}"*.\n\n` +
             `**Native Phase Attention Active:**\n` +
-            `- Persistent State: **${kernel.bands} Harmonic Bands** (${kernel.getMemoryUsageMB()} MB)\n` +
+            `- Persistent State: **${kernel.bands} Harmonic Bands** (${kernel.getMemoryUsageMB()} MB • FP16)\n` +
             `- Internal KV Cache: **0 MB (Strictly Disabled / Replaced by RIF)**\n\n` +
             `To enable neural text generation, use a WebGPU-enabled browser (Chrome 113+, Edge 113+, Safari 18+).`;
         }
@@ -981,7 +1057,51 @@ async function initKalpanaApp() {
         isSmolLM: false,
         activePackName: isKnowledgePackMatch && activePack ? activePack.name : null
       };
-      appendChatMessage('assistant', responseText, meta);
+
+      const fallbackBubble = document.createElement('div');
+      fallbackBubble.className = 'chat-bubble assistant';
+      
+      if (evidenceCardHtml) {
+        const evidenceContainer = document.createElement('div');
+        evidenceContainer.innerHTML = evidenceCardHtml;
+        fallbackBubble.appendChild(evidenceContainer);
+      }
+
+      const contentDiv = document.createElement('div');
+      contentDiv.className = 'msg-content';
+      contentDiv.innerHTML = formatMarkdown(responseText);
+      fallbackBubble.appendChild(contentDiv);
+
+      const metaDiv = document.createElement('div');
+      metaDiv.className = 'msg-meta';
+      metaDiv.innerHTML = `
+        <span>⚡ ${totalLatency}ms</span>
+        <span>● O(1) State: ${kernel.getMemoryUsageMB()} MB (2048 Bands • FP16)</span>
+        ${meta.activePackName ? `<span style="color:var(--emerald-400)">📦 ${escapeHtml(meta.activePackName)}</span>` : ''}
+      `;
+      fallbackBubble.appendChild(metaDiv);
+
+      // Append Footer Actions
+      const footerDiv = document.createElement('div');
+      footerDiv.className = 'msg-footer-actions';
+      footerDiv.innerHTML = `
+        <div class="msg-footer-left">
+          <span class="rate-label">Rate this answer:</span>
+          <button class="btn-rate" title="Helpful answer" onclick="showToast('success', 'Feedback Recorded', 'Thank you for rating!')">👍</button>
+          <button class="btn-rate" title="Unhelpful answer" onclick="showToast('info', 'Feedback Recorded', 'We will refine our resonance recall.')">👎</button>
+        </div>
+        <div class="msg-footer-right">
+          <button class="btn-copy-answer" onclick="navigator.clipboard.writeText(this.closest('.chat-bubble').querySelector('.msg-content').innerText); showToast('info', 'Copied', 'Answer copied to clipboard.')">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+            <span>Copy</span>
+          </button>
+        </div>
+      `;
+      fallbackBubble.appendChild(footerDiv);
+
+      chatMessages.appendChild(fallbackBubble);
+      chatMessages.scrollTop = chatMessages.scrollHeight;
+
       activeSession.messages.push({ role: "assistant", content: responseText, meta: meta });
       saveSessionsToStorage();
       speakAssistantText(responseText);

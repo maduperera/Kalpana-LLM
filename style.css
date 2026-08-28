@@ -1437,4 +1437,157 @@ textarea::placeholder {
   margin-top: 3px;
 }
 
+/* ===================================================================
+   Delicate Evidence Shards & Answer Feedback System
+   =================================================================== */
+.evidence-card-wrapper {
+  margin-bottom: 12px;
+  width: 100%;
+}
+
+.evidence-details-card {
+  background: rgba(15, 23, 42, 0.75);
+  border: 1px solid rgba(56, 189, 248, 0.2);
+  border-radius: 12px;
+  padding: 10px 14px;
+  backdrop-filter: blur(10px);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+}
+
+.evidence-summary-header {
+  cursor: pointer;
+  font-size: 0.76rem;
+  font-weight: 700;
+  color: var(--cyan-400);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  list-style: none;
+  outline: none;
+}
+
+.evidence-summary-header::-webkit-details-marker {
+  display: none;
+}
+
+.evidence-title-left {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.evidence-chevron-icon {
+  transition: transform 0.2s ease;
+  color: var(--cyan-400);
+}
+
+.evidence-details-card[open] .evidence-chevron-icon {
+  transform: rotate(90deg);
+}
+
+.evidence-badge-latency {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  color: var(--emerald-400);
+  background: rgba(52, 211, 153, 0.12);
+  padding: 2px 8px;
+  border-radius: 6px;
+  font-weight: 700;
+}
+
+.evidence-shards-list {
+  padding-top: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.evidence-shard-item {
+  padding-left: 12px;
+  border-left: 2px solid rgba(56, 189, 248, 0.4);
+}
+
+.evidence-shard-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 4px;
+}
+
+.shard-tag {
+  font-size: 0.68rem;
+  font-weight: 800;
+  color: var(--cyan-400);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.shard-latency {
+  font-size: 0.65rem;
+  font-family: var(--font-mono);
+  color: var(--text-muted);
+}
+
+.shard-content-text {
+  font-size: 0.84rem;
+  line-height: 1.55;
+  color: var(--text-secondary);
+}
+
+.msg-footer-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 12px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  font-size: 0.75rem;
+}
+
+.msg-footer-left {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.rate-label {
+  color: var(--text-muted);
+  font-size: 0.72rem;
+}
+
+.btn-rate {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  font-size: 0.85rem;
+  padding: 2px 4px;
+  opacity: 0.65;
+  transition: all 0.15s ease;
+}
+
+.btn-rate:hover {
+  opacity: 1;
+  transform: scale(1.25);
+}
+
+.btn-copy-answer {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: var(--text-muted);
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  transition: all var(--transition-fast);
+}
+
+.btn-copy-answer:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+}
+
 
