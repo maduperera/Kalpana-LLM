@@ -177,28 +177,6 @@ async function initKalpanaApp() {
       }
     }
 
-    // 4. Memory Reduction Factor (Live calculation vs standard KV)
-    const savingsVal = document.getElementById('savingsGaugeVal');
-    const savingsTrack = document.getElementById('savingsGaugeTrack');
-    if (savingsVal) {
-      const tokens = Math.max(kernel.totalTokensIngested, 1);
-      const stdKvMB = (tokens * 2 * 24 * 8 * 64 * 2) / (1024 * 1024);
-      const rifStateMB = parseFloat(memMB) || 49.15;
-      let factor;
-      if (tokens >= 3000000) {
-        factor = 750;
-      } else if (tokens > 500) {
-        factor = Math.max(1, Math.round(stdKvMB / rifStateMB));
-      } else {
-        factor = 750;
-      }
-      savingsVal.textContent = `${factor}x`;
-      if (savingsTrack) {
-        const pct = Math.min(1, Math.max(0.08, factor / 750));
-        savingsTrack.style.strokeDashoffset = (251.2 * (1 - pct)).toFixed(1);
-      }
-    }
-
     // 4. 3M Holographic Capacity Tracker
     const capacityText = document.getElementById('capacitySpentText');
     const capacityBar = document.getElementById('capacitySpentBar');
