@@ -23,7 +23,7 @@
   <link rel="apple-touch-icon" sizes="192x192" href="assets/icon-192.png">
 
   <!-- Stylesheet -->
-  <link rel="stylesheet" href="style.css?v=7.2.0">
+  <link rel="stylesheet" href="style.css?v=7.3.0">
 </head>
 <body>
 
@@ -69,7 +69,7 @@
         <div style="font-size: 0.72rem; color: var(--text-muted); font-family: var(--font-mono); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.05em;">Attention Engine</div>
         <div style="display:flex;align-items:center;gap:8px;">
           <span style="width:8px;height:8px;border-radius:50%;background:#34d399;display:inline-block;box-shadow:0 0 8px #34d399;"></span>
-          <span style="font-size:0.82rem;font-weight:700;color:#34d399;">True O(1) Phase Attention</span>
+          <span style="font-size:0.82rem;font-weight:700;color:#34d399;">True O(1) Attention</span>
         </div>
         <div style="font-size:0.72rem;color:var(--text-secondary);margin-top:6px;">Internal KV Cache: <strong style="color:var(--rose-400);">DISABLED (0 MB)</strong></div>
         <div style="font-size:0.72rem;color:var(--text-secondary);">Harmonic Bands: <strong style="color:var(--cyan-400);">2048 Bands</strong></div>
@@ -223,38 +223,38 @@
             </div>
             
             <div class="wheel-meters-hud">
-              <!-- Wheel Gauge 1: Attention RIF State Memory -->
+              <!-- Wheel Gauge 1: Knowledge Pack (.kp) File Storage -->
               <div class="wheel-meter-card">
-                <div class="wheel-gauge-title">⚡ Attention RIF State</div>
+                <div class="wheel-gauge-title">📦 Knowledge Pack (.kp)</div>
                 <div class="wheel-gauge-container">
                   <svg class="wheel-gauge-svg" viewBox="0 0 100 100">
                     <circle class="wheel-gauge-bg" cx="50" cy="50" r="40"></circle>
                     <circle class="wheel-gauge-track track-emerald" id="rifGaugeTrack" cx="50" cy="50" r="40" stroke-dasharray="251.2" stroke-dashoffset="0"></circle>
                   </svg>
                   <div class="wheel-gauge-center">
-                    <span class="wheel-gauge-val" id="rifGaugeVal">48.00</span>
+                    <span class="wheel-gauge-val" id="rifGaugeVal">4.00</span>
                     <span class="wheel-gauge-unit">MB</span>
                   </div>
                 </div>
-                <div class="wheel-gauge-subtitle">Strict O(1) • 2048 Bands</div>
-                <span class="badge badge-emerald" style="margin-top:6px;">Constant Phase State</span>
+                <div class="wheel-gauge-subtitle">3M+ Token Capacity</div>
+                <span class="badge badge-emerald" style="margin-top:6px;">Portable RIF Tensor</span>
               </div>
 
-              <!-- Wheel Gauge 2: Attention KV Cache State (Flatline Stability) -->
+              <!-- Wheel Gauge 2: Attention State (Flatline Constant Memory) -->
               <div class="wheel-meter-card">
-                <div class="wheel-gauge-title">🎯 Attention KV Cache</div>
+                <div class="wheel-gauge-title">🎯 Attention State</div>
                 <div class="wheel-gauge-container">
                   <svg class="wheel-gauge-svg" viewBox="0 0 100 100">
                     <circle class="wheel-gauge-bg" cx="50" cy="50" r="40"></circle>
-                    <circle class="wheel-gauge-track track-emerald" id="kvGaugeTrack" cx="50" cy="50" r="40" stroke-dasharray="251.2" stroke-dashoffset="251.2"></circle>
+                    <circle class="wheel-gauge-track track-emerald" id="kvGaugeTrack" cx="50" cy="50" r="40" stroke-dasharray="251.2" stroke-dashoffset="0"></circle>
                   </svg>
                   <div class="wheel-gauge-center">
-                    <span class="wheel-gauge-val" id="kvGaugeVal" style="color:var(--emerald-400);">0.00</span>
+                    <span class="wheel-gauge-val" id="kvGaugeVal" style="color:var(--emerald-400);">48.00</span>
                     <span class="wheel-gauge-unit">MB</span>
                   </div>
                 </div>
                 <div class="wheel-gauge-subtitle">Flatline O(1) Stability</div>
-                <span class="badge badge-emerald" style="margin-top:6px;">Disabled (Avoids 36.8 GB)</span>
+                <span class="badge badge-emerald" style="margin-top:6px;">0 MB KV (Avoids 36.8 GB)</span>
               </div>
 
               <!-- Wheel Gauge 3: LLM VRAM Usage -->
@@ -550,8 +550,8 @@
 
   <!-- Scripts -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
-  <script src="kalpana-phase-kernel.js?v=7.2.0"></script>
-  <script src="spectrum-visualizer.js?v=7.2.0"></script>
-  <script type="module" src="app.js?v=7.2.0"></script>
+  <script src="kalpana-phase-kernel.js?v=7.3.0"></script>
+  <script src="spectrum-visualizer.js?v=7.3.0"></script>
+  <script type="module" src="app.js?v=7.3.0"></script>
 </body>
 </html>

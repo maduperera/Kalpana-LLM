@@ -137,10 +137,10 @@ async function initKalpanaApp() {
     if (stdEl) stdEl.textContent = `${kernel.getStandardKvEquivalentGB()} GB`;
     if (bandLabel) bandLabel.textContent = `${kernel.bands} Bands`;
 
-    // 1. Attention RIF State Memory (48.00 MB Constant Phase Tensor)
+    // 1. Knowledge Pack (.kp) File Storage (4.00 MB FP16 Tensor)
     const rifVal = document.getElementById('rifGaugeVal');
     const rifTrack = document.getElementById('rifGaugeTrack');
-    if (rifVal) rifVal.textContent = '48.00';
+    if (rifVal) rifVal.textContent = '4.00';
     if (rifTrack) {
       rifTrack.style.strokeDashoffset = '0';
       if (isLiveStreaming) {
@@ -150,12 +150,12 @@ async function initKalpanaApp() {
       }
     }
 
-    // 2. Attention KV Cache Memory (Flatline 0.00 MB Strict O(1) Stability)
+    // 2. Attention State Memory (Flatline 48.00 MB Constant O(1) Stability)
     const kvVal = document.getElementById('kvGaugeVal');
     const kvTrack = document.getElementById('kvGaugeTrack');
-    if (kvVal) kvVal.textContent = '0.00';
+    if (kvVal) kvVal.textContent = '48.00';
     if (kvTrack) {
-      kvTrack.style.strokeDashoffset = '251.2';
+      kvTrack.style.strokeDashoffset = '0';
       kvTrack.style.filter = 'drop-shadow(0 0 6px rgba(52, 211, 153, 0.6))';
     }
 
