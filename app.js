@@ -669,7 +669,7 @@ async function initKalpanaApp() {
     showToast('success', 'Chat Deleted', 'Conversation deleted.');
   }
 
-  function saveSessionAsKnowledgePack(sessionId = activeSessionId) {
+  async function saveSessionAsKnowledgePack(sessionId = activeSessionId) {
     const session = chatSessions.find(s => s.id === sessionId) || getActiveSession();
     if (!session) return;
 
@@ -701,7 +701,10 @@ async function initKalpanaApp() {
     saveKnowledgePacksToStorage();
     renderKnowledgePacksList();
 
-    showToast('success', 'Saved as Knowledge Pack', `Created Knowledge Pack "💬 ${session.title}" (${tokenCount.toLocaleString()} tokens). You can now manage, activate, or export it in the Knowledge Packs tab.`);
+    // Auto-activate the newly created Knowledge Pack so questions immediately query it
+    await activateKnowledgePack(newPack.id);
+
+    showToast('success', 'Saved & Activated as Knowledge Pack', `Created and activated Knowledge Pack "💬 ${session.title}" (${tokenCount.toLocaleString()} tokens).`);
   }
 
   const chatTopNewChatBtn = document.getElementById('chatTopNewChatBtn');
@@ -820,10 +823,37 @@ async function initKalpanaApp() {
     let matchedKnowledgeContext = '';
     let isKnowledgePackMatch = false;
 
-    if (res.matches && res.matches.length > 0 && res.matches[0].score > 1.2) {
-      const topMatches = res.matches.slice(0, 2);
-      matchedKnowledgeContext = topMatches.map(m => `--- Document: ${m.title} ---\n${m.fullText}`).join('\n\n');
-      isKnowledgePackMatch = true;
+    if (activePack && activePack.documents && activePack.documents.length > 0) {
+      const queryWords = text.toLowerCase().split(/\s+/).filter(w => w.length > 1);
+      
+      const rankedDocs = activePack.documents.map(doc => {
+        let matchScore = 0;
+        const lowerDoc = (doc.content || '').toLowerCase();
+        const lowerTitle = (doc.title || '').toLowerCase();
+        for (const w of queryWords) {
+          if (lowerDoc.includes(w)) matchScore += 1.5;
+          if (lowerTitle.includes(w)) matchScore += 2.0;
+        }
+        return { doc, matchScore };
+      }).sort((a, b) => b.matchScore - a.matchScore);
+
+      const totalWords = activePack.documents.reduce((acc, d) => acc + (d.content || '').split(/\s+/).length, 0);
+
+      if (rankedDocs[0].matchScore > 0 || (res.matches && res.matches.length > 0) || totalWords <= 2500) {
+        isKnowledgePackMatch = true;
+        let selectedDocs = [];
+        if (rankedDocs[0].matchScore > 0) {
+          selectedDocs = rankedDocs.filter(d => d.matchScore > 0).slice(0, 3).map(d => d.doc);
+        } else if (res.matches && res.matches.length > 0) {
+          const matchedTitles = new Set(res.matches.map(m => m.title));
+          selectedDocs = activePack.documents.filter(d => matchedTitles.has(d.title)).slice(0, 3);
+          if (selectedDocs.length === 0) selectedDocs = activePack.documents.slice(0, 3);
+        } else {
+          selectedDocs = activePack.documents.slice(0, 3);
+        }
+
+        matchedKnowledgeContext = selectedDocs.map(d => `--- Document: ${d.title} ---\n${d.content.slice(0, 2500)}`).join('\n\n');
+      }
     }
 
     // 3. Neural Execution with SmolLM2 360M via WebGPU
@@ -1455,7 +1485,7 @@ async function initKalpanaApp() {
     }
     updateLiveTelemetryHeader();
 
-    showToast('success', 'Knowledge Pack Activated', `"${pack.name}" is now active in 2048-band RIF Phase Attention!`);
+    showToast('success', 'Knowledge Pack Activated', `"${pack.name}" is now active in 2048-band RIF Attention!`);
   }
 
   function deactivateKnowledgePack() {
@@ -1470,7 +1500,7 @@ async function initKalpanaApp() {
       renderKnowledgePackDetail(currentlyOpenKpId);
     }
     updateLiveTelemetryHeader();
-    showToast('info', 'Deactivated', 'RIF Phase Attention cleared.');
+    showToast('info', 'Deactivated', 'RIF Attention cleared.');
   }
 
   function createNewKnowledgePack(name) {
@@ -1528,16 +1558,12 @@ async function initKalpanaApp() {
     pack.totalTokens = pack.documents.reduce((sum, d) => sum + (d.tokenCount || 0), 0);
     saveKnowledgePacksToStorage();
 
-    // If this pack is currently active, immediately ingest into RIF kernel
-    if (activeKpId === packId) {
-      await kernel.ingestTextAsync(newDoc.content, newDoc.title, { packId: pack.id });
-      updateActiveKpBanner();
-      updateLiveTelemetryHeader();
-    }
+    // Auto-activate this pack and re-ingest all documents into RIF kernel
+    await activateKnowledgePack(packId);
 
     renderKnowledgePackDetail(packId);
     renderKnowledgePacksList();
-    showToast('success', 'Document Added', `Added "${cleanTitle}" (${tokenCount.toLocaleString()} tokens) to pack.`);
+    showToast('success', 'Document Added & Activated', `Added "${cleanTitle}" (${tokenCount.toLocaleString()} tokens) and activated in RIF.`);
   }
 
   function removeDocumentFromPack(packId, docId) {
@@ -1557,17 +1583,25 @@ async function initKalpanaApp() {
     showToast('info', 'Document Removed', 'Removed document from pack.');
   }
 
-  function exportKnowledgePackAsKp(packId) {
+  async function exportKnowledgePackAsKp(packId) {
     const pack = knowledgePacks.find(p => p.id === packId);
     if (!pack) return;
 
-    const tempKernel = new KalpanaPhaseKernel({ numHeads: 8, bands: 2048, headDim: 64, kappa: 2.0 });
-    for (const doc of pack.documents) {
-      tempKernel.ingestText(doc.content, doc.title);
-    }
+    showToast('info', 'Exporting .kp', `Preparing "${pack.name}" archive...`);
 
     const cleanName = pack.name.replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 32);
-    const blob = tempKernel.exportKnowledgePack(cleanName);
+    let blob;
+
+    if (activeKpId === packId && kernel.documents.length > 0) {
+      blob = kernel.exportKnowledgePack(cleanName);
+    } else {
+      const tempKernel = new KalpanaPhaseKernel({ numHeads: 8, bands: 512, headDim: 64, kappa: 2.0 });
+      for (const doc of pack.documents) {
+        await tempKernel.ingestTextAsync(doc.content, doc.title);
+      }
+      blob = tempKernel.exportKnowledgePack(cleanName);
+    }
+
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
