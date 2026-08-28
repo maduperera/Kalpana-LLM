@@ -3,7 +3,7 @@
  * Network-First Caching Strategy with Instant Offline Fallback & Auto-Cache Purge
  */
 
-const VERSION = '6.5.0';
+const VERSION = '6.6.0';
 const CACHE_NAME = `kalpana-llm-cache-v${VERSION}`;
 
 const ASSETS_TO_PRECACHE = [

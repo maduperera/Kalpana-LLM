@@ -839,7 +839,8 @@ async function initKalpanaApp() {
 
       const totalWords = activePack.documents.reduce((acc, d) => acc + (d.content || '').split(/\s+/).length, 0);
 
-      if (rankedDocs[0].matchScore > 0 || (res.matches && res.matches.length > 0) || totalWords <= 2500) {
+      // Only trigger Knowledge Pack context augmentation if there is an actual semantic/keyword match
+      if (rankedDocs[0].matchScore > 0 || (res.matches && res.matches.length > 0)) {
         isKnowledgePackMatch = true;
         let selectedDocs = [];
         if (rankedDocs[0].matchScore > 0) {
@@ -874,9 +875,12 @@ async function initKalpanaApp() {
 
       try {
         const systemPrompt = (isKnowledgePackMatch && activePack)
-          ? `You are Kalpanā, a helpful and intelligent AI assistant. An active Knowledge Pack titled "${activePack.name}" has been loaded into your memory.\n\n` +
+          ? `You are Kalpanā, an intelligent and helpful AI assistant. An active Knowledge Pack titled "${activePack.name}" has been loaded into your memory.\n\n` +
             `[ACTIVE KNOWLEDGE PACK CONTENT]:\n${matchedKnowledgeContext}\n\n` +
-            `Use the above Knowledge Pack content to answer the user's question accurately. If the user's question is NOT related to or cannot be answered from this content, answer helpfully using your general knowledge.`
+            `Instructions:\n` +
+            `1. Answer the user's question accurately using the Knowledge Pack content above.\n` +
+            `2. If the user asks about an entity, person, or fact that is NOT mentioned in the Knowledge Pack, clearly state that it is not found in "${activePack.name}" and provide what you know from general knowledge.\n` +
+            `3. Never invent facts not present in the provided documents.`
           : `You are Kalpanā, a helpful, intelligent, and versatile AI assistant. Answer the user's questions clearly, accurately, and helpfully on any topic.`;
 
         let completion;
