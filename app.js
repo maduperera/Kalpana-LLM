@@ -1390,7 +1390,7 @@ async function initKalpanaApp() {
     banner.style.display = 'flex';
     if (titleEl) titleEl.textContent = activePack.name;
     if (subEl) {
-      subEl.textContent = `${activePack.documents.length} Docs • ${(activePack.totalTokens || 0).toLocaleString()} Tokens • 49.15 MB Constant State • 0 MB KV Cache`;
+      subEl.textContent = `${activePack.documents.length} Docs • ${(activePack.totalTokens || 0).toLocaleString()} Tokens • ${kernel.getMemoryUsageMB()} MB RIF Tensor • 0 MB KV Cache`;
     }
   }
 

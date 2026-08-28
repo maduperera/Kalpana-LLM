@@ -413,10 +413,15 @@ class KalpanaPhaseKernel {
   }
 
   /**
-   * Exact theoretical and empirical Kalpanā RIF State size for a 24-layer LLM model:
-   * Formula: 4 (re+im for K and V) * 24 layers * 2 KV heads * bands * 64 dim * 2 bytes (FP16)
+   * Exact physical Kalpanā RIF Tensor size in browser memory:
+   * State_Re [heads * bands * headDim * 4 bytes] + State_Im [heads * bands * headDim * 4 bytes]
    */
   getMemoryUsageMB() {
+    const totalBytes = this.stateRe.byteLength + this.stateIm.byteLength;
+    return (totalBytes / (1024 * 1024)).toFixed(2);
+  }
+
+  get24LayerEquivalentMB() {
     const totalBytes = 4 * 24 * 2 * this.bands * this.headDim * 2;
     return (totalBytes / (1024 * 1024)).toFixed(2);
   }
