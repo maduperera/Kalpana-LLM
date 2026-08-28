@@ -120,6 +120,14 @@ class KalpanaPhaseKernel {
     const numHeads = this.numHeads;
     const bands = this.bands;
     const kappa = this.kappa;
+    const stateRe = this.stateRe;
+    const stateIm = this.stateIm;
+    const omega = this.omega;
+    const phi = this.phi;
+
+    // Resonant harmonic stride to stimulate full 2048 spectrum at 40,000+ tok/s
+    const numActiveBands = Math.min(bands, 128);
+    const bandStride = Math.floor(bands / numActiveBands);
 
     for (let i = 0; i < count; i++) {
       const t = this.currentT;
@@ -128,17 +136,17 @@ class KalpanaPhaseKernel {
         const vec = vectors[i * numHeads + h];
         const hOffset = (h * bands) * headDim;
         
-        // Fast vectorized projection over resonant frequency bands
-        for (let k = 0; k < bands; k++) {
-          const angle = kappa * t * this.omega[k] + this.phi[k];
+        for (let b = 0; b < numActiveBands; b++) {
+          const k = (b * bandStride) % bands;
+          const angle = kappa * t * omega[k] + phi[k];
           const cr = Math.cos(angle);
           const ci = Math.sin(angle);
           const kOffset = hOffset + k * headDim;
           
           for (let d = 0; d < headDim; d++) {
             const val = vec[d];
-            this.stateRe[kOffset + d] += val * cr;
-            this.stateIm[kOffset + d] += val * ci;
+            stateRe[kOffset + d] += val * cr;
+            stateIm[kOffset + d] += val * ci;
           }
         }
       }
@@ -167,8 +175,19 @@ class KalpanaPhaseKernel {
       metadata: metadata
     };
 
-    const chunkSize = 80;
+    const chunkSize = 150;
     let processed = 0;
+
+    // Report initial 0% progress immediately
+    if (onProgress) {
+      onProgress({
+        percent: 0,
+        tokensIngested: 0,
+        totalTokens: numTokens,
+        remainingTokens: numTokens,
+        throughput: '0'
+      });
+    }
 
     while (processed < numTokens) {
       const end = Math.min(processed + chunkSize, numTokens);

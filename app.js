@@ -1462,7 +1462,7 @@ async function initKalpanaApp() {
     }
   }
 
-  async function activateKnowledgePack(packId) {
+  async function activateKnowledgePack(packId, onProgress = null) {
     const pack = knowledgePacks.find(p => p.id === packId);
     if (!pack) return;
 
@@ -1474,8 +1474,27 @@ async function initKalpanaApp() {
     kernel.documents = [];
     kernel.totalTokensIngested = 0;
 
-    for (const doc of pack.documents) {
-      await kernel.ingestTextAsync(doc.content, doc.title, { packId: pack.id });
+    const totalPackTokens = pack.documents.reduce((sum, d) => sum + (d.tokenCount || 0), 0);
+    let cumulativeTokens = 0;
+
+    for (let i = 0; i < pack.documents.length; i++) {
+      const doc = pack.documents[i];
+      await kernel.ingestTextAsync(doc.content, doc.title, { packId: pack.id }, (p) => {
+        if (onProgress) {
+          const currentTotal = cumulativeTokens + p.tokensIngested;
+          const overallPercent = totalPackTokens > 0 ? Math.min(100, Math.round((currentTotal / totalPackTokens) * 100)) : p.percent;
+          onProgress({
+            percent: overallPercent,
+            tokensIngested: currentTotal,
+            totalTokens: totalPackTokens || p.totalTokens,
+            docTitle: doc.title,
+            docIndex: i + 1,
+            totalDocs: pack.documents.length,
+            throughput: p.throughput
+          });
+        }
+      });
+      cumulativeTokens += (doc.tokenCount || 0);
     }
 
     updateActiveKpBanner();
@@ -1539,7 +1558,7 @@ async function initKalpanaApp() {
     showToast('info', 'Pack Deleted', `Deleted "${pack.name}".`);
   }
 
-  async function addDocumentToPack(packId, title, content) {
+  async function addDocumentToPack(packId, title, content, onProgress = null) {
     const pack = knowledgePacks.find(p => p.id === packId);
     if (!pack || !content.trim()) return;
 
@@ -1558,8 +1577,8 @@ async function initKalpanaApp() {
     pack.totalTokens = pack.documents.reduce((sum, d) => sum + (d.tokenCount || 0), 0);
     saveKnowledgePacksToStorage();
 
-    // Auto-activate this pack and re-ingest all documents into RIF kernel
-    await activateKnowledgePack(packId);
+    // Auto-activate this pack and re-ingest all documents into RIF kernel with live progress reporting!
+    await activateKnowledgePack(packId, onProgress);
 
     renderKnowledgePackDetail(packId);
     renderKnowledgePacksList();
@@ -1745,15 +1764,31 @@ async function initKalpanaApp() {
       }
       const title = (kpAddDocTitle && kpAddDocTitle.value.trim()) || '';
       
-      if (kpIngestProgressContainer) kpIngestProgressContainer.style.display = 'block';
+      const progressEl = document.getElementById('kpIngestProgressContainer');
+      const statusEl = document.getElementById('kpIngestProgressStatus');
+      const tokensEl = document.getElementById('kpIngestProgressTokens');
+      const barEl = document.getElementById('kpIngestProgressBar');
+
+      if (progressEl) progressEl.style.display = 'block';
+      if (barEl) barEl.style.width = '0%';
+      if (statusEl) statusEl.textContent = 'Ingesting into RIF Attention...';
+      if (tokensEl) tokensEl.textContent = 'Preparing...';
       if (kpAddDocTextBtn) kpAddDocTextBtn.disabled = true;
 
-      await addDocumentToPack(currentlyOpenKpId, title, text);
+      const progressCallback = (p) => {
+        if (statusEl) statusEl.textContent = `Ingesting "${p.docTitle || title || 'Document'}"... (${p.throughput || 0} tok/s)`;
+        if (tokensEl) tokensEl.textContent = `${p.tokensIngested.toLocaleString()} / ${p.totalTokens.toLocaleString()} tokens (${p.percent}%)`;
+        if (barEl) barEl.style.width = `${p.percent}%`;
+      };
+
+      await addDocumentToPack(currentlyOpenKpId, title, text, progressCallback);
 
       kpAddDocText.value = '';
       if (kpAddDocTitle) kpAddDocTitle.value = '';
-      if (kpIngestProgressContainer) {
-        setTimeout(() => { kpIngestProgressContainer.style.display = 'none'; }, 400);
+      if (progressEl) {
+        if (barEl) barEl.style.width = '100%';
+        if (statusEl) statusEl.textContent = '✅ Ingestion complete!';
+        setTimeout(() => { progressEl.style.display = 'none'; }, 600);
       }
       if (kpAddDocTextBtn) kpAddDocTextBtn.disabled = false;
     });
@@ -1768,13 +1803,34 @@ async function initKalpanaApp() {
       const reader = new FileReader();
       reader.onload = async (evt) => {
         const text = evt.target.result;
-        if (kpIngestProgressContainer) kpIngestProgressContainer.style.display = 'block';
+        if (!text || !text.trim()) {
+          showToast('error', 'Empty File', 'Uploaded file is empty.');
+          return;
+        }
+
+        const progressEl = document.getElementById('kpIngestProgressContainer');
+        const statusEl = document.getElementById('kpIngestProgressStatus');
+        const tokensEl = document.getElementById('kpIngestProgressTokens');
+        const barEl = document.getElementById('kpIngestProgressBar');
+
+        if (progressEl) progressEl.style.display = 'block';
+        if (barEl) barEl.style.width = '0%';
+        if (statusEl) statusEl.textContent = `Reading & Ingesting "${file.name}"...`;
+        if (tokensEl) tokensEl.textContent = 'Preparing...';
         if (kpAddDocFileBtn) kpAddDocFileBtn.disabled = true;
 
-        await addDocumentToPack(currentlyOpenKpId, file.name, text);
+        const progressCallback = (p) => {
+          if (statusEl) statusEl.textContent = `Ingesting "${p.docTitle || file.name}"... (${p.throughput || 0} tok/s)`;
+          if (tokensEl) tokensEl.textContent = `${p.tokensIngested.toLocaleString()} / ${p.totalTokens.toLocaleString()} tokens (${p.percent}%)`;
+          if (barEl) barEl.style.width = `${p.percent}%`;
+        };
 
-        if (kpIngestProgressContainer) {
-          setTimeout(() => { kpIngestProgressContainer.style.display = 'none'; }, 400);
+        await addDocumentToPack(currentlyOpenKpId, file.name, text, progressCallback);
+
+        if (progressEl) {
+          if (barEl) barEl.style.width = '100%';
+          if (statusEl) statusEl.textContent = '✅ Ingestion complete!';
+          setTimeout(() => { progressEl.style.display = 'none'; }, 600);
         }
         if (kpAddDocFileBtn) kpAddDocFileBtn.disabled = false;
         kpAddDocFileInput.value = '';
