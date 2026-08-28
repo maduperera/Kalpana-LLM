@@ -413,11 +413,11 @@ class KalpanaPhaseKernel {
   }
 
   /**
-   * Exact physical Kalpanā RIF Tensor size in browser memory:
-   * State_Re [heads * bands * headDim * 4 bytes] + State_Im [heads * bands * headDim * 4 bytes]
+   * Exact physical Kalpanā RIF Tensor size in FP16 representation:
+   * State_Re [heads * bands * headDim * 2 bytes] + State_Im [heads * bands * headDim * 2 bytes]
    */
   getMemoryUsageMB() {
-    const totalBytes = this.stateRe.byteLength + this.stateIm.byteLength;
+    const totalBytes = (this.stateRe.length + this.stateIm.length) * 2;
     return (totalBytes / (1024 * 1024)).toFixed(2);
   }
 
@@ -450,7 +450,8 @@ class KalpanaPhaseKernel {
 
   exportKnowledgePack(packName = "Kalpana_Knowledge_Pack") {
     const metadata = {
-      version: "3.0.5",
+      version: "3.1.0",
+      precision: "fp16",
       packName: packName,
       created: new Date().toISOString(),
       numHeads: this.numHeads,
@@ -466,8 +467,12 @@ class KalpanaPhaseKernel {
     const metaBytes = new TextEncoder().encode(metaJson);
     const metaLen = metaBytes.byteLength;
     
-    const stateReBytes = new Uint8Array(this.stateRe.buffer);
-    const stateImBytes = new Uint8Array(this.stateIm.buffer);
+    // Convert StateRe and StateIm Float32 -> Float16 (Uint16Array) for 4.00 MB total file footprint
+    const stateReF16 = float32ToFloat16(this.stateRe);
+    const stateImF16 = float32ToFloat16(this.stateIm);
+
+    const stateReBytes = new Uint8Array(stateReF16.buffer);
+    const stateImBytes = new Uint8Array(stateImF16.buffer);
     
     const totalSize = 8 + metaLen + stateReBytes.byteLength + stateImBytes.byteLength;
     const buffer = new Uint8Array(totalSize);
@@ -505,15 +510,73 @@ class KalpanaPhaseKernel {
     this.needles = meta.needles || [];
     
     const stateSize = this.numHeads * this.bands * this.headDim;
+    const isFp16 = meta.precision === "fp16" || (buffer.byteLength - 8 - metaLen === stateSize * 2 * 2);
     const reOffset = 8 + metaLen;
-    const imOffset = reOffset + stateSize * 4;
+
+    if (isFp16) {
+      const imOffset = reOffset + stateSize * 2;
+      const reU16 = new Uint16Array(buffer.slice(reOffset, imOffset));
+      const imU16 = new Uint16Array(buffer.slice(imOffset, imOffset + stateSize * 2));
+      this.stateRe = float16ToFloat32(reU16);
+      this.stateIm = float16ToFloat32(imU16);
+    } else {
+      const imOffset = reOffset + stateSize * 4;
+      this.stateRe = new Float32Array(buffer.slice(reOffset, imOffset));
+      this.stateIm = new Float32Array(buffer.slice(imOffset, imOffset + stateSize * 4));
+    }
     
-    this.stateRe = new Float32Array(buffer.slice(reOffset, imOffset));
-    this.stateIm = new Float32Array(buffer.slice(imOffset, imOffset + stateSize * 4));
-    
-    console.log(`📦 Loaded Knowledge Pack '${meta.packName}': ${this.documents.length} docs, ${this.totalTokensIngested} tokens.`);
+    console.log(`📦 Loaded Knowledge Pack '${meta.packName}' (${isFp16 ? 'FP16 4.00MB' : 'FP32 8.00MB'}): ${this.documents.length} docs, ${this.totalTokensIngested} tokens.`);
     return meta;
   }
+}
+
+// Fast IEEE 754 Float32 to Float16 converter (Uint16Array)
+function float32ToFloat16(f32Array) {
+  const f16 = new Uint16Array(f32Array.length);
+  const fView = new Float32Array(1);
+  const iView = new Int32Array(fView.buffer);
+
+  for (let i = 0; i < f32Array.length; i++) {
+    fView[0] = f32Array[i];
+    const x = iView[0];
+    const sign = (x >> 16) & 0x8000;
+    const exp = ((x >> 23) & 0xff) - 127 + 15;
+    const mant = x & 0x007fffff;
+
+    if (exp <= 0) {
+      if (exp < -10) {
+        f16[i] = sign;
+      } else {
+        const m = (mant | 0x00800000) >> (1 - exp);
+        f16[i] = sign | (m >> 13);
+      }
+    } else if (exp >= 31) {
+      f16[i] = sign | 0x7c00;
+    } else {
+      f16[i] = sign | (exp << 10) | (mant >> 13);
+    }
+  }
+  return f16;
+}
+
+// Fast IEEE 754 Float16 (Uint16Array) to Float32Array converter
+function float16ToFloat32(u16Array) {
+  const f32 = new Float32Array(u16Array.length);
+  for (let i = 0; i < u16Array.length; i++) {
+    const h = u16Array[i];
+    const sign = (h & 0x8000) ? -1 : 1;
+    const exp = (h >> 10) & 0x1f;
+    const mant = h & 0x03ff;
+
+    if (exp === 0) {
+      f32[i] = sign * Math.pow(2, -14) * (mant / 1024);
+    } else if (exp === 31) {
+      f32[i] = mant ? NaN : sign * Infinity;
+    } else {
+      f32[i] = sign * Math.pow(2, exp - 15) * (1 + mant / 1024);
+    }
+  }
+  return f32;
 }
 
 window.KalpanaPhaseKernel = KalpanaPhaseKernel;
