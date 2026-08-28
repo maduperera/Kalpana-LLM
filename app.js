@@ -564,7 +564,7 @@ async function initKalpanaApp() {
         <div class="chat-session-item ${isActive ? 'active' : ''}" data-session-id="${session.id}">
           <span class="session-title-text" title="${escapeHtml(session.title)}">💬 ${escapeHtml(session.title)}</span>
           <div class="session-actions">
-            <button class="session-action-btn btn-export-kp" data-session-id="${session.id}" title="Export chat as .kp file">📤</button>
+            <button class="session-action-btn btn-save-session-kp" data-session-id="${session.id}" title="Save conversation as Knowledge Pack (KP)">💾</button>
             <button class="session-action-btn btn-rename" data-session-id="${session.id}" title="Rename chat">✏️</button>
             <button class="session-action-btn btn-delete" data-session-id="${session.id}" title="Delete chat">🗑️</button>
           </div>
@@ -601,12 +601,12 @@ async function initKalpanaApp() {
       });
     });
 
-    // Attach export .kp buttons
-    listEl.querySelectorAll('.btn-export-kp').forEach((btn) => {
+    // Attach save to Knowledge Pack buttons
+    listEl.querySelectorAll('.btn-save-session-kp').forEach((btn) => {
       btn.addEventListener('click', (e) => {
         e.stopPropagation();
         const sid = btn.getAttribute('data-session-id');
-        exportSessionAsKp(sid);
+        saveSessionAsKnowledgePack(sid);
       });
     });
   }
@@ -669,25 +669,39 @@ async function initKalpanaApp() {
     showToast('success', 'Chat Deleted', 'Conversation deleted.');
   }
 
-  function exportSessionAsKp(sessionId = activeSessionId) {
+  function saveSessionAsKnowledgePack(sessionId = activeSessionId) {
     const session = chatSessions.find(s => s.id === sessionId) || getActiveSession();
     if (!session) return;
 
-    // Ingest all conversation text into kernel to ensure full phase state encoding
-    const sessionConversationText = session.messages.map(m => `${m.role.toUpperCase()}: ${m.content}`).join('\n\n');
-    if (sessionConversationText) {
-      kernel.ingestText(sessionConversationText, `Chat: ${session.title}`);
+    if (!session.messages || session.messages.length === 0) {
+      showToast('info', 'Empty Conversation', 'No messages in this conversation to save as a Knowledge Pack.');
+      return;
     }
 
-    const cleanTitle = session.title.replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 30);
-    const blob = kernel.exportKnowledgePack(`Kalpana_Chat_${cleanTitle}`);
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `Kalpana_Chat_${cleanTitle}_${Date.now()}.kp`;
-    a.click();
-    URL.revokeObjectURL(url);
-    showToast('success', 'Chat Exported as .kp', `Exported "${session.title}" as a portable .kp file!`);
+    const formattedConversationText = session.messages.map(m => `${m.role === 'user' ? 'User' : 'Kalpanā Assistant'}: ${m.content}`).join('\n\n');
+    const tokenCount = Math.max(1, Math.round(formattedConversationText.split(/\s+/).length * 1.3));
+
+    const newPack = {
+      id: 'kp_chat_' + Date.now(),
+      name: `💬 ${session.title}`,
+      createdAt: Date.now(),
+      totalTokens: tokenCount,
+      documents: [
+        {
+          id: 'doc_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
+          title: `Dialogue: ${session.title}`,
+          tokenCount: tokenCount,
+          sample: formattedConversationText.slice(0, 120) + '...',
+          content: formattedConversationText
+        }
+      ]
+    };
+
+    knowledgePacks.unshift(newPack);
+    saveKnowledgePacksToStorage();
+    renderKnowledgePacksList();
+
+    showToast('success', 'Saved as Knowledge Pack', `Created Knowledge Pack "💬 ${session.title}" (${tokenCount.toLocaleString()} tokens). You can now manage, activate, or export it in the Knowledge Packs tab.`);
   }
 
   const chatTopNewChatBtn = document.getElementById('chatTopNewChatBtn');
@@ -716,7 +730,7 @@ async function initKalpanaApp() {
 
   if (exportChatKpBtn) {
     exportChatKpBtn.addEventListener('click', () => {
-      exportSessionAsKp(activeSessionId);
+      saveSessionAsKnowledgePack(activeSessionId);
     });
   }
 
