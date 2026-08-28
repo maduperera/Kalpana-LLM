@@ -739,6 +739,7 @@ async function initKalpanaApp() {
         <span>⚡ ${meta.latency || '0.1'}ms ${meta.tokPerSec ? `(${meta.tokPerSec} tok/s)` : ''}</span>
         <span>● O(1) State: ${kernel.getMemoryUsageMB()} MB (2048 Bands)</span>
         ${meta.isSmolLM ? `<span style="color:var(--cyan-400)">🧠 SmolLM2-360M (WebGPU)</span>` : ''}
+        ${meta.activePackName ? `<span style="color:var(--emerald-400)">📦 Knowledge Pack: ${escapeHtml(meta.activePackName)}</span>` : ''}
         ${meta.needleMatch ? `<span style="color:var(--emerald-400)">🎯 Resonant Match</span>` : ''}
       </div>`;
     }
@@ -800,6 +801,17 @@ async function initKalpanaApp() {
       return;
     }
 
+    // Check if query matches content from active Knowledge Pack
+    const activePack = activeKpId ? knowledgePacks.find(p => p.id === activeKpId) : null;
+    let matchedKnowledgeContext = '';
+    let isKnowledgePackMatch = false;
+
+    if (res.matches && res.matches.length > 0 && res.matches[0].score > 1.2) {
+      const topMatches = res.matches.slice(0, 2);
+      matchedKnowledgeContext = topMatches.map(m => `--- Document: ${m.title} ---\n${m.fullText}`).join('\n\n');
+      isKnowledgePackMatch = true;
+    }
+
     // 3. Neural Execution with SmolLM2 360M via WebGPU
     if (webllmEngine && isModelReady) {
       const assistantBubble = document.createElement('div');
@@ -817,14 +829,17 @@ async function initKalpanaApp() {
       const recentHistory = conversationHistory.slice(-4);
 
       try {
+        const systemPrompt = (isKnowledgePackMatch && activePack)
+          ? `You are Kalpanā, a helpful and intelligent AI assistant. An active Knowledge Pack titled "${activePack.name}" has been loaded into your memory.\n\n` +
+            `[ACTIVE KNOWLEDGE PACK CONTENT]:\n${matchedKnowledgeContext}\n\n` +
+            `Use the above Knowledge Pack content to answer the user's question accurately. If the user's question is NOT related to or cannot be answered from this content, answer helpfully using your general knowledge.`
+          : `You are Kalpanā, a helpful, intelligent, and versatile AI assistant. Answer the user's questions clearly, accurately, and helpfully on any topic.`;
+
         let completion;
         try {
           completion = await webllmEngine.chat.completions.create({
             messages: [
-              {
-                role: "system",
-                content: `You are Kalpanā, a helpful, intelligent, and versatile AI assistant. You can answer questions on any topic, including general knowledge, sports (such as cricket, football, tennis), science, history, coding, and more. Answer clearly, accurately, and helpfully.`
-              },
+              { role: "system", content: systemPrompt },
               ...recentHistory
             ],
             stream: true,
@@ -835,10 +850,7 @@ async function initKalpanaApp() {
           console.warn('Context error in WebLLM, retrying with single prompt:', ctxErr);
           completion = await webllmEngine.chat.completions.create({
             messages: [
-              {
-                role: "system",
-                content: `You are Kalpanā, a helpful, intelligent, and versatile AI assistant. Answer clearly, accurately, and helpfully.`
-              },
+              { role: "system", content: systemPrompt },
               { role: "user", content: text }
             ],
             stream: true,
@@ -872,7 +884,8 @@ async function initKalpanaApp() {
         const meta = {
           latency: elapsedMs.toFixed(1),
           tokPerSec: tokPerSec,
-          isSmolLM: true
+          isSmolLM: true,
+          activePackName: isKnowledgePackMatch && activePack ? activePack.name : null
         };
 
         const metaDiv = document.createElement('div');
@@ -881,6 +894,7 @@ async function initKalpanaApp() {
           <span>⚡ ${elapsedMs.toFixed(1)}ms (${tokPerSec} tok/s)</span>
           <span>● O(1) State: ${kernel.getMemoryUsageMB()} MB (2048 Bands)</span>
           <span style="color:var(--cyan-400)">🧠 SmolLM2-360M (WebGPU)</span>
+          ${meta.activePackName ? `<span style="color:var(--emerald-400)">📦 ${escapeHtml(meta.activePackName)}</span>` : ''}
         `;
         assistantBubble.appendChild(metaDiv);
         activeSession.messages.push({ role: "assistant", content: fullResponse, meta: meta });
@@ -897,13 +911,19 @@ async function initKalpanaApp() {
 
     // 4. Instant Native Knowledge Response (While SmolLM2 loads or on non-WebGPU devices)
     setTimeout(() => {
-      let responseText = getOfflineKnowledgeResponse(text);
+      let responseText = '';
+      if (isKnowledgePackMatch && activePack) {
+        responseText = `📦 **[Knowledge Pack: ${escapeHtml(activePack.name)}]**\n\n` +
+          `Based on your activated Knowledge Pack documents:\n\n${matchedKnowledgeContext.slice(0, 900)}...`;
+      } else {
+        responseText = getOfflineKnowledgeResponse(text);
+      }
 
       if (!responseText) {
         if (isModelLoading) {
           responseText = `⏳ **SmolLM2 360M is currently loading into your WebGPU cache...**\n\n` +
             `You asked: *"${escapeHtml(text)}"*.\n\n` +
-            `Once the model finishes compiling in the background, all prompts will be generated live by SmolLM2 360M. In the meantime, you can ask about sports (tennis, cricket), inventors (Edison, Tesla), science, and AI architectures!`;
+            `Once the model finishes compiling in the background, all prompts will be generated live by SmolLM2 360M.`;
         } else {
           responseText = `🤖 **Kalpanā Phase Core — Offline Response:**\n\n` +
             `You asked: *"${escapeHtml(text)}"*.\n\n` +
@@ -917,7 +937,8 @@ async function initKalpanaApp() {
       const totalLatency = (performance.now() - startT).toFixed(1);
       const meta = {
         latency: totalLatency,
-        isSmolLM: false
+        isSmolLM: false,
+        activePackName: isKnowledgePackMatch && activePack ? activePack.name : null
       };
       appendChatMessage('assistant', responseText, meta);
       activeSession.messages.push({ role: "assistant", content: responseText, meta: meta });
@@ -1083,159 +1104,650 @@ async function initKalpanaApp() {
     });
   }
 
-  const exportKpBtn = document.getElementById('exportKpBtn');
+  // ===================================================================
+  // 9. Comprehensive Knowledge Pack (KP) Management System
+  // ===================================================================
+  const KP_STORAGE_KEY = 'kalpana_custom_kp_v2';
+  const ACTIVE_KP_KEY = 'kalpana_active_kp_id_v2';
+  const TOTAL_KP_CAPACITY_TOKENS = 3000000;
+
+  let knowledgePacks = [];
+  let activeKpId = null;
+  let currentlyOpenKpId = null;
+
+  // Starter Default Knowledge Packs
+  const DEFAULT_STARTER_PACKS = [
+    {
+      id: 'kp_starter_physics',
+      name: '⚛️ Quantum Physics & Relativity',
+      createdAt: Date.now() - 86400000,
+      totalTokens: 1420,
+      documents: [
+        {
+          id: 'doc_p1',
+          title: 'Quantum Wave Mechanics & Interference',
+          tokenCount: 780,
+          sample: 'The Schrödinger wave equation governs quantum wavefunctions with complex amplitudes...',
+          content: 'Quantum mechanics principles: The Schrödinger wave equation governs quantum wavefunctions with complex amplitudes. In wave mechanics, constructive interference amplifies state probabilities while destructive interference suppresses them. Wave-particle duality implies that matter exhibits both wave-like and particle-like properties. Quantum entanglement describes states of two or more objects that cannot be described independently.'
+        },
+        {
+          id: 'doc_p2',
+          title: 'General Relativity & Holographic Principle',
+          tokenCount: 640,
+          sample: 'General Relativity defines spacetime curvature through Einstein field equations...',
+          content: 'General Relativity defines spacetime curvature through Einstein field equations G_uv = 8*pi*T_uv. Matter curves spacetime, and curved spacetime tells matter how to move. The Holographic Principle states that the maximum entropy or information content of any spatial region scales with its boundary surface area in Planck units (A / 4G), rather than with its volume.'
+        }
+      ]
+    },
+    {
+      id: 'kp_starter_ai',
+      name: '🧠 AI & RIF Phase Attention Architecture',
+      createdAt: Date.now() - 43200000,
+      totalTokens: 1850,
+      documents: [
+        {
+          id: 'doc_a1',
+          title: 'RIF Continuous Fourier Memory vs Standard KV Cache',
+          tokenCount: 1850,
+          sample: 'Standard Transformers store discrete Key-Value vectors in GPU VRAM (O(N) growth)...',
+          content: 'Standard Transformers store discrete Key-Value vectors in GPU VRAM (O(N) growth), leading to 36.86 GB memory usage at 3,000,000 tokens and quadratic compute complexity. Kalpanā Resonant Interference Field (RIF) replaces discrete token caches with continuous harmonic phase integrals across 2048 Fourier frequency bands. Memory remains strictly constant at 49.15 MB with O(1) time complexity across infinite context lengths.'
+        }
+      ]
+    },
+    {
+      id: 'kp_starter_inventions',
+      name: '💡 Legendary Inventors & Breakthroughs',
+      createdAt: Date.now() - 21600000,
+      totalTokens: 1210,
+      documents: [
+        {
+          id: 'doc_i1',
+          title: 'Pioneers of Electricity and Computing',
+          tokenCount: 1210,
+          sample: 'Thomas Alva Edison developed the incandescent light bulb, phonograph, and motion picture...',
+          content: 'Thomas Alva Edison developed the phonograph, motion picture camera, and practical incandescent electric light bulb. Nikola Tesla pioneered alternating current (AC) electricity, polyphase power distribution, the induction motor, and the resonant Tesla coil transformer. Alan Turing formalized theoretical computation and artificial intelligence with the Turing Machine.'
+        }
+      ]
+    }
+  ];
+
+  function loadKnowledgePacksFromStorage() {
+    try {
+      const saved = localStorage.getItem(KP_STORAGE_KEY);
+      if (saved) {
+        knowledgePacks = JSON.parse(saved);
+      }
+    } catch (e) {
+      console.warn('Failed to parse saved knowledge packs:', e);
+      knowledgePacks = [];
+    }
+
+    if (!knowledgePacks || knowledgePacks.length === 0) {
+      knowledgePacks = JSON.parse(JSON.stringify(DEFAULT_STARTER_PACKS));
+      saveKnowledgePacksToStorage();
+    }
+
+    activeKpId = localStorage.getItem(ACTIVE_KP_KEY) || null;
+  }
+
+  function saveKnowledgePacksToStorage() {
+    try {
+      localStorage.setItem(KP_STORAGE_KEY, JSON.stringify(knowledgePacks));
+      if (activeKpId) {
+        localStorage.setItem(ACTIVE_KP_KEY, activeKpId);
+      } else {
+        localStorage.removeItem(ACTIVE_KP_KEY);
+      }
+    } catch (e) {
+      console.warn('Failed to save knowledge packs:', e);
+    }
+  }
+
+  function updateActiveKpBanner() {
+    const banner = document.getElementById('activeKpBanner');
+    const titleEl = document.getElementById('activeKpBannerTitle');
+    const subEl = document.getElementById('activeKpBannerSubtitle');
+    if (!banner) return;
+
+    if (!activeKpId) {
+      banner.style.display = 'none';
+      return;
+    }
+
+    const activePack = knowledgePacks.find(p => p.id === activeKpId);
+    if (!activePack) {
+      banner.style.display = 'none';
+      return;
+    }
+
+    banner.style.display = 'flex';
+    if (titleEl) titleEl.textContent = activePack.name;
+    if (subEl) {
+      subEl.textContent = `${activePack.documents.length} Docs • ${(activePack.totalTokens || 0).toLocaleString()} Tokens • 49.15 MB Constant State • 0 MB KV Cache`;
+    }
+  }
+
+  function renderKnowledgePacksList() {
+    const grid = document.getElementById('kpCardsGrid');
+    const countBadge = document.getElementById('kpCountBadge');
+    if (countBadge) countBadge.textContent = `${knowledgePacks.length} PACKS`;
+    if (!grid) return;
+
+    if (knowledgePacks.length === 0) {
+      grid.innerHTML = '<div style="color:var(--text-muted);font-size:0.88rem;padding:32px 16px;text-align:center;background:rgba(255,255,255,0.02);border:1px dashed var(--border-subtle);border-radius:12px;">No knowledge packs created yet. Click <strong>+ Create Knowledge Pack</strong> or <strong>Import .kp</strong> above.</div>';
+      return;
+    }
+
+    grid.innerHTML = knowledgePacks.map(pack => {
+      const isActive = pack.id === activeKpId;
+      const spentTokens = pack.totalTokens || 0;
+      const remainingTokens = Math.max(0, TOTAL_KP_CAPACITY_TOKENS - spentTokens);
+      const pct = Math.min(100, Math.max(0, (spentTokens / TOTAL_KP_CAPACITY_TOKENS) * 100));
+      const formattedDate = new Date(pack.createdAt || Date.now()).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+
+      return `
+        <div class="kp-card ${isActive ? 'kp-active' : ''}" data-pack-id="${pack.id}">
+          <div class="kp-card-header">
+            <div>
+              <div class="kp-card-title">
+                <span>📦</span>
+                <span>${escapeHtml(pack.name)}</span>
+                ${isActive ? '<span class="badge badge-emerald" style="font-size:0.65rem;">ACTIVE IN RIF</span>' : ''}
+              </div>
+              <div class="kp-card-meta">
+                ${pack.documents.length} Documents • Created ${formattedDate}
+              </div>
+            </div>
+            <div style="display:flex;align-items:center;gap:6px;">
+              <button class="kp-btn-icon btn-export-kp" data-pack-id="${pack.id}" title="Export as .kp archive">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"></path><polyline points="16 6 12 2 8 6"></polyline><line x1="12" y1="2" x2="12" y2="15"></line></svg>
+              </button>
+              <button class="kp-btn-icon btn-delete btn-delete-kp" data-pack-id="${pack.id}" title="Delete Knowledge Pack">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+              </button>
+            </div>
+          </div>
+
+          <!-- 3M Token Capacity Progress Bar -->
+          <div class="kp-progress-box">
+            <div class="kp-progress-label">
+              <span style="color:var(--text-secondary);font-weight:600;">📊 3M Capacity:</span>
+              <span style="color:var(--emerald-400);font-family:var(--font-mono);font-size:0.75rem;">
+                ${spentTokens.toLocaleString()} / 3,000,000 tok (${pct.toFixed(2)}% used • ${remainingTokens.toLocaleString()} left)
+              </span>
+            </div>
+            <div class="kp-progress-bar-bg">
+              <div class="kp-progress-bar-fill" style="width:${pct}%;"></div>
+            </div>
+          </div>
+
+          <div class="kp-card-actions">
+            ${isActive 
+              ? `<button class="btn-secondary btn-deactivate-kp" data-pack-id="${pack.id}" style="height:34px;padding:6px 14px;font-size:0.8rem;border-color:rgba(52,211,153,0.4);color:var(--emerald-400);">🟢 Active in RIF (Deactivate)</button>`
+              : `<button class="btn-primary btn-activate-kp" data-pack-id="${pack.id}" style="height:34px;padding:6px 14px;font-size:0.8rem;display:inline-flex;align-items:center;gap:6px;"><span>⚡</span><span>Activate in RIF</span></button>`
+            }
+            <button class="btn-secondary btn-open-kp" data-pack-id="${pack.id}" style="height:34px;padding:6px 14px;font-size:0.8rem;display:inline-flex;align-items:center;gap:6px;">
+              <span>📂</span>
+              <span>Manage & Add Docs</span>
+            </button>
+          </div>
+        </div>
+      `;
+    }).join('');
+
+    // Attach click events on pack cards
+    grid.querySelectorAll('.btn-activate-kp').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        activateKnowledgePack(btn.getAttribute('data-pack-id'));
+      });
+    });
+
+    grid.querySelectorAll('.btn-deactivate-kp').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        deactivateKnowledgePack();
+      });
+    });
+
+    grid.querySelectorAll('.btn-open-kp').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        openKnowledgePackDetail(btn.getAttribute('data-pack-id'));
+      });
+    });
+
+    grid.querySelectorAll('.btn-export-kp').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        exportKnowledgePackAsKp(btn.getAttribute('data-pack-id'));
+      });
+    });
+
+    grid.querySelectorAll('.btn-delete-kp').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        deleteKnowledgePack(btn.getAttribute('data-pack-id'));
+      });
+    });
+  }
+
+  function openKnowledgePackDetail(packId) {
+    const pack = knowledgePacks.find(p => p.id === packId);
+    if (!pack) return;
+
+    currentlyOpenKpId = packId;
+    const listView = document.getElementById('kpListView');
+    const detailView = document.getElementById('kpDetailView');
+    if (listView) listView.style.display = 'none';
+    if (detailView) detailView.style.display = 'block';
+
+    renderKnowledgePackDetail(packId);
+    window.scrollTo({ top: 0, behavior: 'instant' });
+  }
+
+  function closeKnowledgePackDetail() {
+    currentlyOpenKpId = null;
+    const listView = document.getElementById('kpListView');
+    const detailView = document.getElementById('kpDetailView');
+    if (listView) listView.style.display = 'block';
+    if (detailView) detailView.style.display = 'none';
+    renderKnowledgePacksList();
+  }
+
+  function renderKnowledgePackDetail(packId) {
+    const pack = knowledgePacks.find(p => p.id === packId);
+    if (!pack) return;
+
+    const titleEl = document.getElementById('kpDetailTitle');
+    const activeBadge = document.getElementById('kpDetailActiveBadge');
+    const metaEl = document.getElementById('kpDetailMeta');
+    const capText = document.getElementById('kpDetailCapacityText');
+    const capBar = document.getElementById('kpDetailCapacityBar');
+    const activateBtn = document.getElementById('kpDetailActivateBtn');
+    const activateBtnText = document.getElementById('kpDetailActivateBtnText');
+    const docCountBadge = document.getElementById('kpDetailDocCountBadge');
+    const docsList = document.getElementById('kpDetailDocsList');
+
+    const isActive = pack.id === activeKpId;
+    if (titleEl) titleEl.textContent = pack.name;
+    if (activeBadge) activeBadge.style.display = isActive ? 'inline-block' : 'none';
+    if (metaEl) {
+      const formattedDate = new Date(pack.createdAt || Date.now()).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+      metaEl.textContent = `Created ${formattedDate} • ${pack.documents.length} Documents • ${(pack.totalTokens || 0).toLocaleString()} Tokens`;
+    }
+
+    const spentTokens = pack.totalTokens || 0;
+    const remainingTokens = Math.max(0, TOTAL_KP_CAPACITY_TOKENS - spentTokens);
+    const pct = Math.min(100, Math.max(0, (spentTokens / TOTAL_KP_CAPACITY_TOKENS) * 100));
+
+    if (capText) {
+      capText.textContent = `${spentTokens.toLocaleString()} / 3,000,000 tokens (${pct.toFixed(2)}% used • ${remainingTokens.toLocaleString()} left)`;
+    }
+    if (capBar) {
+      capBar.style.width = `${pct}%`;
+    }
+
+    if (activateBtn && activateBtnText) {
+      activateBtnText.textContent = isActive ? 'Active in RIF (Click to Deactivate)' : 'Activate in RIF';
+      activateBtn.className = isActive ? 'btn-secondary' : 'btn-primary';
+    }
+
+    if (docCountBadge) docCountBadge.textContent = `${pack.documents.length} DOCS`;
+
+    if (docsList) {
+      if (pack.documents.length === 0) {
+        docsList.innerHTML = '<div style="color:var(--text-muted);font-size:0.85rem;padding:24px;text-align:center;background:rgba(255,255,255,0.02);border:1px dashed var(--border-subtle);border-radius:10px;">No documents in this pack yet. Add your first document above.</div>';
+      } else {
+        docsList.innerHTML = pack.documents.map((doc, idx) => `
+          <div style="background:rgba(255,255,255,0.03);border:1px solid var(--border-subtle);border-radius:10px;padding:12px 16px;display:flex;justify-content:space-between;align-items:center;gap:12px;">
+            <div style="flex:1;min-width:0;">
+              <div style="font-weight:600;font-size:0.88rem;color:#fff;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">📄 ${escapeHtml(doc.title)}</div>
+              <div style="font-size:0.75rem;color:var(--text-muted);margin-top:2px;">${(doc.tokenCount || 0).toLocaleString()} tokens • ${escapeHtml(doc.sample || '')}</div>
+            </div>
+            <button class="btn-remove-chip btn-delete-doc" data-doc-id="${doc.id}" title="Remove document from pack" style="font-size:1.1rem;padding:6px;">✕</button>
+          </div>
+        `).join('');
+
+        docsList.querySelectorAll('.btn-delete-doc').forEach(btn => {
+          btn.addEventListener('click', () => {
+            removeDocumentFromPack(pack.id, btn.getAttribute('data-doc-id'));
+          });
+        });
+      }
+    }
+  }
+
+  async function activateKnowledgePack(packId) {
+    const pack = knowledgePacks.find(p => p.id === packId);
+    if (!pack) return;
+
+    activeKpId = packId;
+    saveKnowledgePacksToStorage();
+
+    // Reset RIF kernel and re-ingest all documents from this pack
+    kernel.reallocateState();
+    kernel.documents = [];
+    kernel.totalTokensIngested = 0;
+
+    for (const doc of pack.documents) {
+      await kernel.ingestTextAsync(doc.content, doc.title, { packId: pack.id });
+    }
+
+    updateActiveKpBanner();
+    renderKnowledgePacksList();
+    if (currentlyOpenKpId === packId) {
+      renderKnowledgePackDetail(packId);
+    }
+    updateLiveTelemetryHeader();
+
+    showToast('success', 'Knowledge Pack Activated', `"${pack.name}" is now active in 2048-band RIF Phase Attention!`);
+  }
+
+  function deactivateKnowledgePack() {
+    activeKpId = null;
+    saveKnowledgePacksToStorage();
+    kernel.reallocateState();
+    kernel.documents = [];
+    kernel.totalTokensIngested = 0;
+    updateActiveKpBanner();
+    renderKnowledgePacksList();
+    if (currentlyOpenKpId) {
+      renderKnowledgePackDetail(currentlyOpenKpId);
+    }
+    updateLiveTelemetryHeader();
+    showToast('info', 'Deactivated', 'RIF Phase Attention cleared.');
+  }
+
+  function createNewKnowledgePack(name) {
+    const cleanName = (name || '').trim() || `Custom Knowledge Pack ${knowledgePacks.length + 1}`;
+    const newPack = {
+      id: 'kp_' + Date.now(),
+      name: cleanName,
+      createdAt: Date.now(),
+      totalTokens: 0,
+      documents: []
+    };
+
+    knowledgePacks.unshift(newPack);
+    saveKnowledgePacksToStorage();
+    renderKnowledgePacksList();
+    openKnowledgePackDetail(newPack.id);
+    showToast('success', 'Pack Created', `Created "${cleanName}". You can now add documents.`);
+  }
+
+  function deleteKnowledgePack(packId) {
+    const pack = knowledgePacks.find(p => p.id === packId);
+    if (!pack) return;
+    if (!confirm(`Delete Knowledge Pack "${pack.name}"?`)) return;
+
+    if (activeKpId === packId) {
+      deactivateKnowledgePack();
+    }
+
+    knowledgePacks = knowledgePacks.filter(p => p.id !== packId);
+    saveKnowledgePacksToStorage();
+    if (currentlyOpenKpId === packId) {
+      closeKnowledgePackDetail();
+    } else {
+      renderKnowledgePacksList();
+    }
+    showToast('info', 'Pack Deleted', `Deleted "${pack.name}".`);
+  }
+
+  async function addDocumentToPack(packId, title, content) {
+    const pack = knowledgePacks.find(p => p.id === packId);
+    if (!pack || !content.trim()) return;
+
+    const cleanTitle = (title || '').trim() || `Document ${pack.documents.length + 1}`;
+    const tokenCount = Math.max(1, Math.round(content.trim().split(/\s+/).length * 1.3));
+
+    const newDoc = {
+      id: 'doc_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
+      title: cleanTitle,
+      tokenCount: tokenCount,
+      sample: content.trim().slice(0, 100) + '...',
+      content: content.trim()
+    };
+
+    pack.documents.push(newDoc);
+    pack.totalTokens = pack.documents.reduce((sum, d) => sum + (d.tokenCount || 0), 0);
+    saveKnowledgePacksToStorage();
+
+    // If this pack is currently active, immediately ingest into RIF kernel
+    if (activeKpId === packId) {
+      await kernel.ingestTextAsync(newDoc.content, newDoc.title, { packId: pack.id });
+      updateActiveKpBanner();
+      updateLiveTelemetryHeader();
+    }
+
+    renderKnowledgePackDetail(packId);
+    renderKnowledgePacksList();
+    showToast('success', 'Document Added', `Added "${cleanTitle}" (${tokenCount.toLocaleString()} tokens) to pack.`);
+  }
+
+  function removeDocumentFromPack(packId, docId) {
+    const pack = knowledgePacks.find(p => p.id === packId);
+    if (!pack) return;
+
+    pack.documents = pack.documents.filter(d => d.id !== docId);
+    pack.totalTokens = pack.documents.reduce((sum, d) => sum + (d.tokenCount || 0), 0);
+    saveKnowledgePacksToStorage();
+
+    if (activeKpId === packId) {
+      activateKnowledgePack(packId);
+    } else {
+      renderKnowledgePackDetail(packId);
+      renderKnowledgePacksList();
+    }
+    showToast('info', 'Document Removed', 'Removed document from pack.');
+  }
+
+  function exportKnowledgePackAsKp(packId) {
+    const pack = knowledgePacks.find(p => p.id === packId);
+    if (!pack) return;
+
+    const tempKernel = new KalpanaPhaseKernel({ numHeads: 8, bands: 2048, headDim: 64, kappa: 2.0 });
+    for (const doc of pack.documents) {
+      tempKernel.ingestText(doc.content, doc.title);
+    }
+
+    const cleanName = pack.name.replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 32);
+    const blob = tempKernel.exportKnowledgePack(cleanName);
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${cleanName}_${Date.now()}.kp`;
+    a.click();
+    URL.revokeObjectURL(url);
+    showToast('success', 'Knowledge Pack Exported', `Exported "${pack.name}" as a portable .kp archive!`);
+  }
+
+  async function importKnowledgePackFile(file) {
+    try {
+      const tempKernel = new KalpanaPhaseKernel({ numHeads: 8, bands: 2048, headDim: 64, kappa: 2.0 });
+      const meta = await tempKernel.importKnowledgePack(file);
+      
+      const newPack = {
+        id: 'kp_' + Date.now(),
+        name: meta.packName || file.name.replace(/\.kp$/i, ''),
+        createdAt: Date.now(),
+        totalTokens: tempKernel.totalTokensIngested || meta.totalTokens || 1500,
+        documents: (tempKernel.documents || []).map(d => ({
+          id: 'doc_' + Math.random().toString(36).substr(2, 9),
+          title: d.title,
+          tokenCount: d.tokenCount,
+          sample: d.sample,
+          content: d.fullText
+        }))
+      };
+
+      if (newPack.documents.length === 0) {
+        newPack.documents.push({
+          id: 'doc_imp_' + Date.now(),
+          title: file.name,
+          tokenCount: newPack.totalTokens,
+          sample: 'Imported binary knowledge state',
+          content: `Knowledge pack imported from ${file.name}`
+        });
+      }
+
+      knowledgePacks.unshift(newPack);
+      saveKnowledgePacksToStorage();
+      renderKnowledgePacksList();
+      showToast('success', 'Knowledge Pack Imported', `Added "${newPack.name}" (${newPack.totalTokens.toLocaleString()} tokens) to your packs!`);
+    } catch (err) {
+      console.error('Import failed:', err);
+      showToast('error', 'Import Failed', 'Could not parse .kp archive format.');
+    }
+  }
+
+  // --- Wire Knowledge Pack Event Listeners ---
+  const showCreateKpBtn = document.getElementById('showCreateKpBtn');
+  const createKpCard = document.getElementById('createKpCard');
+  const cancelCreateKpBtn = document.getElementById('cancelCreateKpBtn');
+  const cancelCreateKpBtn2 = document.getElementById('cancelCreateKpBtn2');
+  const confirmCreateKpBtn = document.getElementById('confirmCreateKpBtn');
+  const newKpNameInput = document.getElementById('newKpNameInput');
   const importKpBtn = document.getElementById('importKpBtn');
   const importKpFileInput = document.getElementById('importKpFileInput');
-  const quickIngestBtn = document.getElementById('quickIngestBtn');
-  const quickIngestText = document.getElementById('quickIngestText');
-  const packDocTitle = document.getElementById('packDocTitle');
-  const fileUploadBtn = document.getElementById('fileUploadBtn');
-  const packFileInput = document.getElementById('packFileInput');
-  const ingestProgressContainer = document.getElementById('ingestProgressContainer');
-  const ingestProgressBar = document.getElementById('ingestProgressBar');
-  const ingestProgressStatus = document.getElementById('ingestProgressStatus');
-  const ingestProgressTokens = document.getElementById('ingestProgressTokens');
+  const deactivateKpBtn = document.getElementById('deactivateKpBtn');
+  const queryActiveKpChatBtn = document.getElementById('queryActiveKpChatBtn');
+  const backToKpListBtn = document.getElementById('backToKpListBtn');
+  const kpDetailActivateBtn = document.getElementById('kpDetailActivateBtn');
+  const kpDetailExportBtn = document.getElementById('kpDetailExportBtn');
+  const kpAddDocTextBtn = document.getElementById('kpAddDocTextBtn');
+  const kpAddDocTitle = document.getElementById('kpAddDocTitle');
+  const kpAddDocText = document.getElementById('kpAddDocText');
+  const kpAddDocFileBtn = document.getElementById('kpAddDocFileBtn');
+  const kpAddDocFileInput = document.getElementById('kpAddDocFileInput');
+  const kpIngestProgressContainer = document.getElementById('kpIngestProgressContainer');
 
-  if (fileUploadBtn && packFileInput) {
-    fileUploadBtn.addEventListener('click', () => packFileInput.click());
-    packFileInput.addEventListener('change', (e) => {
-      const file = e.target.files[0];
-      if (!file) return;
+  if (showCreateKpBtn && createKpCard) {
+    showCreateKpBtn.addEventListener('click', () => {
+      createKpCard.style.display = 'block';
+      if (newKpNameInput) {
+        newKpNameInput.value = '';
+        newKpNameInput.focus();
+      }
+    });
+  }
 
-      const reader = new FileReader();
-      reader.onload = async (evt) => {
-        const text = evt.target.result;
-        if (ingestProgressContainer) ingestProgressContainer.style.display = 'block';
-        if (fileUploadBtn) fileUploadBtn.disabled = true;
+  const hideCreateCard = () => { if (createKpCard) createKpCard.style.display = 'none'; };
+  if (cancelCreateKpBtn) cancelCreateKpBtn.addEventListener('click', hideCreateCard);
+  if (cancelCreateKpBtn2) cancelCreateKpBtn2.addEventListener('click', hideCreateCard);
 
-        const res = await kernel.ingestTextAsync(text, file.name, {}, (prog) => {
-          if (ingestProgressBar) ingestProgressBar.style.width = `${prog.percent}%`;
-          if (ingestProgressStatus) ingestProgressStatus.textContent = `Encoding "${file.name}" into 2048 bands (${prog.percent}%)...`;
-          if (ingestProgressTokens) ingestProgressTokens.textContent = `${prog.tokensIngested.toLocaleString()} / ${prog.totalTokens.toLocaleString()} tok (${prog.remainingTokens.toLocaleString()} left)`;
-          updateLiveTelemetryHeader();
-        });
+  if (confirmCreateKpBtn) {
+    confirmCreateKpBtn.addEventListener('click', () => {
+      const name = (newKpNameInput && newKpNameInput.value.trim()) || '';
+      createNewKnowledgePack(name);
+      hideCreateCard();
+    });
+  }
 
-        if (ingestProgressContainer) {
-          setTimeout(() => { ingestProgressContainer.style.display = 'none'; }, 600);
-        }
-        if (fileUploadBtn) fileUploadBtn.disabled = false;
-        packFileInput.value = '';
-        renderDocumentList();
-        updateLiveTelemetryHeader();
-        showToast('success', 'Document Ingested', `Ingested "${file.name}" (${res.tokens.toLocaleString()} tokens) into holographic field.`);
-      };
-      reader.readAsText(file);
+  if (newKpNameInput) {
+    newKpNameInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        const name = newKpNameInput.value.trim();
+        createNewKnowledgePack(name);
+        hideCreateCard();
+      }
     });
   }
 
   if (importKpBtn && importKpFileInput) {
     importKpBtn.addEventListener('click', () => importKpFileInput.click());
-    importKpFileInput.addEventListener('change', async (e) => {
+    importKpFileInput.addEventListener('change', (e) => {
       const file = e.target.files[0];
-      if (!file) return;
-
-      try {
-        const meta = await kernel.importKnowledgePack(file);
+      if (file) {
+        importKnowledgePackFile(file);
         importKpFileInput.value = '';
-        renderDocumentList();
-        updateLiveTelemetryHeader();
-        showToast('success', 'Knowledge Pack Imported!', `Loaded "${meta.packName || file.name}" (${(meta.totalTokens || 0).toLocaleString()} tokens, ${(meta.documents || []).length} docs).`);
-      } catch (err) {
-        console.error('Failed to import .kp file:', err);
-        showToast('error', 'Import Failed', 'Invalid .kp file format or corrupt header.');
       }
     });
   }
 
-  if (quickIngestBtn && quickIngestText) {
-    quickIngestBtn.addEventListener('click', async () => {
-      const text = quickIngestText.value.trim();
-      if (!text) return;
-      const title = (packDocTitle && packDocTitle.value.trim()) || ("Document " + (kernel.documents.length + 1));
+  if (deactivateKpBtn) deactivateKpBtn.addEventListener('click', deactivateKnowledgePack);
+  if (queryActiveKpChatBtn) queryActiveKpChatBtn.addEventListener('click', () => switchTab('chat'));
+  if (backToKpListBtn) backToKpListBtn.addEventListener('click', closeKnowledgePackDetail);
+
+  if (kpDetailActivateBtn) {
+    kpDetailActivateBtn.addEventListener('click', () => {
+      if (!currentlyOpenKpId) return;
+      if (activeKpId === currentlyOpenKpId) {
+        deactivateKnowledgePack();
+      } else {
+        activateKnowledgePack(currentlyOpenKpId);
+      }
+    });
+  }
+
+  if (kpDetailExportBtn) {
+    kpDetailExportBtn.addEventListener('click', () => {
+      if (currentlyOpenKpId) exportKnowledgePackAsKp(currentlyOpenKpId);
+    });
+  }
+
+  if (kpAddDocTextBtn && kpAddDocText) {
+    kpAddDocTextBtn.addEventListener('click', async () => {
+      if (!currentlyOpenKpId) return;
+      const text = kpAddDocText.value.trim();
+      if (!text) {
+        showToast('error', 'Empty Content', 'Please enter text to add to the knowledge pack.');
+        return;
+      }
+      const title = (kpAddDocTitle && kpAddDocTitle.value.trim()) || '';
       
-      if (ingestProgressContainer) ingestProgressContainer.style.display = 'block';
-      if (quickIngestBtn) quickIngestBtn.disabled = true;
+      if (kpIngestProgressContainer) kpIngestProgressContainer.style.display = 'block';
+      if (kpAddDocTextBtn) kpAddDocTextBtn.disabled = true;
 
-      const res = await kernel.ingestTextAsync(text, title, {}, (prog) => {
-        if (ingestProgressBar) ingestProgressBar.style.width = `${prog.percent}%`;
-        if (ingestProgressStatus) ingestProgressStatus.textContent = `Encoding into 2048 bands (${prog.percent}%)...`;
-        if (ingestProgressTokens) ingestProgressTokens.textContent = `${prog.tokensIngested.toLocaleString()} / ${prog.totalTokens.toLocaleString()} tok (${prog.remainingTokens.toLocaleString()} left)`;
-        updateLiveTelemetryHeader();
-      });
+      await addDocumentToPack(currentlyOpenKpId, title, text);
 
-      quickIngestText.value = '';
-      if (packDocTitle) packDocTitle.value = '';
-      if (ingestProgressContainer) {
-        setTimeout(() => { ingestProgressContainer.style.display = 'none'; }, 600);
+      kpAddDocText.value = '';
+      if (kpAddDocTitle) kpAddDocTitle.value = '';
+      if (kpIngestProgressContainer) {
+        setTimeout(() => { kpIngestProgressContainer.style.display = 'none'; }, 400);
       }
-      if (quickIngestBtn) quickIngestBtn.disabled = false;
-      renderDocumentList();
+      if (kpAddDocTextBtn) kpAddDocTextBtn.disabled = false;
+    });
+  }
+
+  if (kpAddDocFileBtn && kpAddDocFileInput) {
+    kpAddDocFileBtn.addEventListener('click', () => kpAddDocFileInput.click());
+    kpAddDocFileInput.addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (!file || !currentlyOpenKpId) return;
+
+      const reader = new FileReader();
+      reader.onload = async (evt) => {
+        const text = evt.target.result;
+        if (kpIngestProgressContainer) kpIngestProgressContainer.style.display = 'block';
+        if (kpAddDocFileBtn) kpAddDocFileBtn.disabled = true;
+
+        await addDocumentToPack(currentlyOpenKpId, file.name, text);
+
+        if (kpIngestProgressContainer) {
+          setTimeout(() => { kpIngestProgressContainer.style.display = 'none'; }, 400);
+        }
+        if (kpAddDocFileBtn) kpAddDocFileBtn.disabled = false;
+        kpAddDocFileInput.value = '';
+      };
+      reader.readAsText(file);
+    });
+  }
+
+  // Initialize Knowledge Packs & Ingest Active Pack into RIF if set
+  loadKnowledgePacksFromStorage();
+  updateActiveKpBanner();
+  renderKnowledgePacksList();
+
+  if (activeKpId) {
+    const initialActivePack = knowledgePacks.find(p => p.id === activeKpId);
+    if (initialActivePack && initialActivePack.documents.length > 0) {
+      for (const doc of initialActivePack.documents) {
+        kernel.ingestText(doc.content, doc.title, { packId: initialActivePack.id });
+      }
       updateLiveTelemetryHeader();
-      showToast('success', 'Ingested!', `Added ${res.tokens.toLocaleString()} tokens into holographic memory in ${res.timeMs.toFixed(1)}ms.`);
-    });
-  }
-
-  // Preset Knowledge Packs
-  const PRESET_PACKS = {
-    physics: {
-      title: "⚛️ Quantum Physics & Relativity Pack",
-      text: "Quantum mechanics principles: The Schrödinger wave equation governs quantum wavefunctions with complex amplitudes. In wave mechanics, constructive interference amplifies state probabilities while destructive interference suppresses them. General Relativity defines spacetime curvature through Einstein field equations. Holographic Principle states that the information content of a volume of space can be described by a boundary theory on its surface."
-    },
-    ai: {
-      title: "🧠 Transformers vs RIF Phase Attention",
-      text: "Standard Transformers rely on discrete O(N) Key-Value (KV) cache storage, causing memory explosion (36.86 GB at 3M tokens) and quadratic latency. Kalpanā Resonant Interference Field (RIF) replaces discrete memory with continuous Fourier phase fields across 2048 harmonic bands, maintaining strictly O(1) constant 49.15 MB memory across infinite context lengths."
-    },
-    inventions: {
-      title: "💡 Legendary Inventors & Breakthroughs",
-      text: "Thomas Alva Edison developed the phonograph, motion picture camera, and long-lasting electric incandescent light bulb. Nikola Tesla pioneered alternating current (AC) electricity, polyphase power distribution, and the Tesla coil. Alan Turing formalized theoretical computation and artificial intelligence with the Turing machine."
     }
-  };
-
-  document.querySelectorAll('.preset-pack-btn').forEach((btn) => {
-    btn.addEventListener('click', () => {
-      const packKey = btn.getAttribute('data-pack');
-      const pack = PRESET_PACKS[packKey];
-      if (pack) {
-        const res = kernel.ingestText(pack.text, pack.title);
-        renderDocumentList();
-        updateLiveTelemetryHeader();
-        showToast('success', 'Knowledge Pack Ingested', `Ingested "${pack.title}" (${res.tokens} tokens) into holographic field.`);
-      }
-    });
-  });
-
-  if (exportKpBtn) {
-    exportKpBtn.addEventListener('click', () => {
-      const blob = kernel.exportKnowledgePack("Kalpana_Knowledge_Pack");
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `Kalpana_Knowledge_Pack_${Date.now()}.kp`;
-      a.click();
-      URL.revokeObjectURL(url);
-      showToast('success', 'Exported .kp', 'Holographic Knowledge Pack exported for 100% offline use.');
-    });
-  }
-
-  function renderDocumentList() {
-    const listEl = document.getElementById('activeDocsList');
-    const badgeEl = document.getElementById('activeDocCountBadge');
-    if (badgeEl) badgeEl.textContent = `${kernel.documents.length} DOCS`;
-    if (!listEl) return;
-    if (kernel.documents.length === 0) {
-      listEl.innerHTML = '<div style="color:var(--text-muted);font-size:0.85rem;padding:12px;text-align:center;">No documents ingested yet. Upload files or select a pre-loaded pack above.</div>';
-      return;
-    }
-
-    listEl.innerHTML = kernel.documents.map((doc) => `
-      <div style="background:rgba(255,255,255,0.03);border:1px solid var(--border-subtle);border-radius:10px;padding:12px 16px;display:flex;justify-content:space-between;align-items:center;gap:12px;">
-        <div style="flex:1;min-width:0;">
-          <div style="font-weight:600;font-size:0.88rem;color:#fff;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">📄 ${escapeHtml(doc.title)}</div>
-          <div style="font-size:0.75rem;color:var(--text-muted);margin-top:2px;">${doc.tokenCount} tokens • ${escapeHtml(doc.sample || '')}</div>
-        </div>
-        <span class="badge badge-cyan" style="flex-shrink:0;">2048 Bands</span>
-      </div>
-    `).join('');
   }
 
   // 10. PWA Service Worker Registration
