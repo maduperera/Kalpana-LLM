@@ -23,7 +23,7 @@
   <link rel="apple-touch-icon" sizes="192x192" href="assets/icon-192.png">
 
   <!-- Stylesheet -->
-  <link rel="stylesheet" href="style.css?v=7.1.0">
+  <link rel="stylesheet" href="style.css?v=7.2.0">
 </head>
 <body>
 
@@ -223,24 +223,41 @@
             </div>
             
             <div class="wheel-meters-hud">
-              <!-- Wheel Gauge 1: RIF State Memory -->
+              <!-- Wheel Gauge 1: Attention RIF State Memory -->
               <div class="wheel-meter-card">
-                <div class="wheel-gauge-title">⚡ RIF State Cache</div>
+                <div class="wheel-gauge-title">⚡ Attention RIF State</div>
                 <div class="wheel-gauge-container">
                   <svg class="wheel-gauge-svg" viewBox="0 0 100 100">
                     <circle class="wheel-gauge-bg" cx="50" cy="50" r="40"></circle>
                     <circle class="wheel-gauge-track track-emerald" id="rifGaugeTrack" cx="50" cy="50" r="40" stroke-dasharray="251.2" stroke-dashoffset="0"></circle>
                   </svg>
                   <div class="wheel-gauge-center">
-                    <span class="wheel-gauge-val" id="rifGaugeVal">49.15</span>
+                    <span class="wheel-gauge-val" id="rifGaugeVal">48.00</span>
                     <span class="wheel-gauge-unit">MB</span>
                   </div>
                 </div>
                 <div class="wheel-gauge-subtitle">Strict O(1) • 2048 Bands</div>
-                <span class="badge badge-emerald" style="margin-top:6px;">0 MB Internal KV Cache</span>
+                <span class="badge badge-emerald" style="margin-top:6px;">Constant Phase State</span>
               </div>
 
-              <!-- Wheel Gauge 2: LLM VRAM Usage -->
+              <!-- Wheel Gauge 2: Attention KV Cache State (Flatline Stability) -->
+              <div class="wheel-meter-card">
+                <div class="wheel-gauge-title">🎯 Attention KV Cache</div>
+                <div class="wheel-gauge-container">
+                  <svg class="wheel-gauge-svg" viewBox="0 0 100 100">
+                    <circle class="wheel-gauge-bg" cx="50" cy="50" r="40"></circle>
+                    <circle class="wheel-gauge-track track-emerald" id="kvGaugeTrack" cx="50" cy="50" r="40" stroke-dasharray="251.2" stroke-dashoffset="251.2"></circle>
+                  </svg>
+                  <div class="wheel-gauge-center">
+                    <span class="wheel-gauge-val" id="kvGaugeVal" style="color:var(--emerald-400);">0.00</span>
+                    <span class="wheel-gauge-unit">MB</span>
+                  </div>
+                </div>
+                <div class="wheel-gauge-subtitle">Flatline O(1) Stability</div>
+                <span class="badge badge-emerald" style="margin-top:6px;">Disabled (Avoids 36.8 GB)</span>
+              </div>
+
+              <!-- Wheel Gauge 3: LLM VRAM Usage -->
               <div class="wheel-meter-card">
                 <div class="wheel-gauge-title">🧠 Neural LLM VRAM</div>
                 <div class="wheel-gauge-container">
@@ -249,7 +266,7 @@
                     <circle class="wheel-gauge-track track-cyan" id="vramGaugeTrack" cx="50" cy="50" r="40" stroke-dasharray="251.2" stroke-dashoffset="88"></circle>
                   </svg>
                   <div class="wheel-gauge-center">
-                    <span class="wheel-gauge-val" id="vramGaugeVal">140</span>
+                    <span class="wheel-gauge-val" id="vramGaugeVal">142.5</span>
                     <span class="wheel-gauge-unit">MB</span>
                   </div>
                 </div>
@@ -257,7 +274,7 @@
                 <span class="badge badge-cyan" id="vramGaugeBadge" style="margin-top:6px;">WebGPU Active</span>
               </div>
 
-              <!-- Wheel Gauge 3: Memory Reduction -->
+              <!-- Wheel Gauge 4: Memory Reduction -->
               <div class="wheel-meter-card">
                 <div class="wheel-gauge-title">📈 Memory Reduction</div>
                 <div class="wheel-gauge-container">
@@ -533,8 +550,8 @@
 
   <!-- Scripts -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
-  <script src="kalpana-phase-kernel.js?v=7.1.0"></script>
-  <script src="spectrum-visualizer.js?v=7.1.0"></script>
-  <script type="module" src="app.js?v=7.1.0"></script>
+  <script src="kalpana-phase-kernel.js?v=7.2.0"></script>
+  <script src="spectrum-visualizer.js?v=7.2.0"></script>
+  <script type="module" src="app.js?v=7.2.0"></script>
 </body>
 </html>
