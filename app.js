@@ -2125,10 +2125,46 @@ async function initKalpanaApp() {
     });
   }
 
-  // 10. PWA Service Worker Registration
+  // 10. PWA Service Worker & Offline Connectivity Monitor
+  const offlineStatusBadge = document.getElementById('offlineStatusBadge');
+
+  function updateNetworkStatus() {
+    if (!offlineStatusBadge) return;
+    if (navigator.onLine) {
+      offlineStatusBadge.innerHTML = '🟢 Online (WebGPU)';
+      offlineStatusBadge.style.background = 'rgba(52,211,153,0.15)';
+      offlineStatusBadge.style.color = '#34d399';
+      offlineStatusBadge.style.borderColor = 'rgba(52,211,153,0.3)';
+    } else {
+      offlineStatusBadge.innerHTML = '⚡ 100% Offline Mode (Cached)';
+      offlineStatusBadge.style.background = 'rgba(245,158,11,0.15)';
+      offlineStatusBadge.style.color = '#fbbf24';
+      offlineStatusBadge.style.borderColor = 'rgba(245,158,11,0.3)';
+      showToast('info', 'Offline Mode Active', 'Kalpanā is running 100% locally from your device cache without internet.');
+    }
+  }
+
+  window.addEventListener('online', () => {
+    updateNetworkStatus();
+    showToast('success', 'Back Online', 'Internet connection restored.');
+  });
+  window.addEventListener('offline', updateNetworkStatus);
+  updateNetworkStatus();
+
   if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('./sw.js')
-      .then((reg) => console.log('⚡ Kalpanā Service Worker registered:', reg.scope))
+      .then((reg) => {
+        console.log('⚡ Kalpanā Service Worker registered:', reg.scope);
+        // Check for updates
+        reg.onupdatefound = () => {
+          const installingWorker = reg.installing;
+          installingWorker.onstatechange = () => {
+            if (installingWorker.state === 'installed' && navigator.serviceWorker.controller) {
+              console.log('⚡ Kalpanā PWA Update available.');
+            }
+          };
+        };
+      })
       .catch((err) => console.warn('Service Worker registration skipped:', err));
   }
 
@@ -2161,7 +2197,7 @@ async function initKalpanaApp() {
     return div.innerHTML;
   }
   window.showToast = showToast;
-  console.log('🚀 Kalpanā LLM PWA Ready with SmolLM2 360M WebGPU + 2048-Band RIF Phase Attention!');
+  console.log('🚀 Kalpanā LLM PWA Ready with SmolLM2 360M WebGPU + 2048-Band RIF Phase Attention (100% Offline Ready)!');
 }
 
 // Support both early evaluation and DOM ready

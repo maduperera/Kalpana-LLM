@@ -1,9 +1,10 @@
 /**
  * Kalpanā LLM PWA Service Worker
- * Network-First Caching Strategy with Instant Offline Fallback & Auto-Cache Purge
+ * Robust Offline-First Caching Strategy with Model Cache Persistence & Auto-Purge
+ * (c) Vijñāna AI | Kalpanā
  */
 
-const VERSION = '7.5.0';
+const VERSION = '8.0.0';
 const CACHE_NAME = `kalpana-llm-cache-v${VERSION}`;
 
 const ASSETS_TO_PRECACHE = [
@@ -17,16 +18,18 @@ const ASSETS_TO_PRECACHE = [
   './manifest.json',
   './assets/icon-192.png',
   './assets/icon-512.png',
+  './assets/icon-1024.png',
   './assets/curl-white.svg',
-  './assets/curl-black.svg'
+  './assets/curl-black.svg',
+  'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js'
 ];
 
-// Install: Cache new core assets and activate immediately
+// Install: Cache all core assets and activate immediately
 self.addEventListener('install', (event) => {
   self.skipWaiting();
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
-      console.log(`⚡ Kalpanā Service Worker v${VERSION}: Pre-caching core assets...`);
+      console.log(`⚡ Kalpanā Service Worker v${VERSION}: Pre-caching core offline assets...`);
       return Promise.allSettled(
         ASSETS_TO_PRECACHE.map((url) => cache.add(new Request(url, { cache: 'reload' })))
       );
@@ -34,13 +37,13 @@ self.addEventListener('install', (event) => {
   );
 });
 
-// Activate: Delete all old caches immediately
+// Activate: Delete old cache versions and claim clients immediately
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys().then((cacheNames) => {
       return Promise.all(
         cacheNames.map((name) => {
-          if (name !== CACHE_NAME) {
+          if (name !== CACHE_NAME && !name.startsWith('webllm/')) {
             console.log(`🗑️ Kalpanā SW: Purging old cache: ${name}`);
             return caches.delete(name);
           }
@@ -50,16 +53,44 @@ self.addEventListener('activate', (event) => {
   );
 });
 
-// Fetch: Network-First Strategy for HTML/JS/CSS (Always get latest version when online)
+// Fetch Strategy:
+// 1. App shell & local files: Network-first with Cache fallback
+// 2. External CDN JS/CSS/Fonts: Stale-While-Revalidate / Cache-First
+// 3. Navigation requests: Fallback to index.html when offline
 self.addEventListener('fetch', (event) => {
-  // Only handle GET requests
   if (event.request.method !== 'GET') return;
 
-  // Let WebLLM / HuggingFace model CDN requests pass through directly
-  if (event.request.url.includes('huggingface.co') || event.request.url.includes('esm.run') || event.request.url.includes('jsdelivr.net')) {
+  const url = new URL(event.request.url);
+
+  // 1. External CDN libraries (esm.run, cdnjs, jsdelivr): Cache-first with Network update
+  if (url.origin.includes('esm.run') || url.origin.includes('jsdelivr.net') || url.origin.includes('cdnjs.cloudflare.com')) {
+    event.respondWith(
+      caches.open(CACHE_NAME).then((cache) => {
+        return cache.match(event.request).then((cachedResponse) => {
+          if (cachedResponse) {
+            // Return cached version immediately, optionally fetch in background to update
+            fetch(event.request).then((networkResponse) => {
+              if (networkResponse && networkResponse.status === 200) {
+                cache.put(event.request, networkResponse);
+              }
+            }).catch(() => {/* offline, ignore */});
+            return cachedResponse;
+          }
+
+          // If not in cache, fetch from network and cache for next time
+          return fetch(event.request).then((networkResponse) => {
+            if (networkResponse && networkResponse.status === 200) {
+              cache.put(event.request, networkResponse.clone());
+            }
+            return networkResponse;
+          }).catch(() => cachedResponse);
+        });
+      })
+    );
     return;
   }
 
+  // 2. Standard App Shell files: Network-first with instant offline cache fallback
   event.respondWith(
     fetch(event.request)
       .then((networkResponse) => {
@@ -72,12 +103,13 @@ self.addEventListener('fetch', (event) => {
         return networkResponse;
       })
       .catch(() => {
-        // Offline Fallback: Serve from Cache
+        // Offline: Serve from Cache
         return caches.match(event.request).then((cachedResponse) => {
           if (cachedResponse) return cachedResponse;
           if (event.request.mode === 'navigate') {
             return caches.match('./index.html');
           }
+          return new Response('Offline: Content not cached yet', { status: 503, statusText: 'Service Unavailable' });
         });
       })
   );
