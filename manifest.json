@@ -43,8 +43,8 @@
   "categories": ["productivity", "education", "utilities"],
   "shortcuts": [
     {
-      "name": "3M Benchmark",
-      "url": "./index.html#benchmark",
+      "name": "Chat",
+      "url": "./index.html#chat",
       "icons": [{ "src": "assets/icon-192.png", "sizes": "192x192" }]
     },
     {
