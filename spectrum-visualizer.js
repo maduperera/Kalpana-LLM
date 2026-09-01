@@ -4,11 +4,11 @@
  */
 
 class SpectrumVisualizer {
-  constructor(canvasId) {
+  constructor(canvasId, bands = 2048) {
     this.canvas = document.getElementById(canvasId);
     if (!this.canvas) return;
     this.ctx = this.canvas.getContext('2d');
-    this.bands = 1024;
+    this.bands = bands;
     this.spectrumData = new Float32Array(this.bands);
     this.smoothedData = new Float32Array(this.bands);
     this.isRunning = false;
@@ -27,7 +27,12 @@ class SpectrumVisualizer {
 
   updateData(newData) {
     if (!newData) return;
-    for (let i = 0; i < Math.min(this.bands, newData.length); i++) {
+    if (this.bands !== newData.length) {
+      this.bands = newData.length;
+      this.spectrumData = new Float32Array(this.bands);
+      this.smoothedData = new Float32Array(this.bands);
+    }
+    for (let i = 0; i < this.bands; i++) {
       this.spectrumData[i] = newData[i];
     }
   }
@@ -127,7 +132,7 @@ class SpectrumVisualizer {
     // 3. Draw Legend / Status overlay
     ctx.fillStyle = 'rgba(148, 163, 184, 0.9)';
     ctx.font = '11px "JetBrains Mono", monospace';
-    ctx.fillText(`HARMONIC BANDS: 1024 | RESONANT PEAK: ${maxVal.toFixed(3)} | SAMPLING: 60 FPS`, 14, 20);
+    ctx.fillText(`HARMONIC BANDS: ${this.bands} | RESONANT PEAK: ${maxVal.toFixed(3)} | SAMPLING: 60 FPS`, 14, 20);
     ctx.fillStyle = 'rgba(52, 211, 153, 0.9)';
     ctx.fillText(`● INTERFERENCE ACTIVE`, w - 175, 20);
   }

@@ -34,7 +34,7 @@ class KalpanaPhaseKernel {
   }
 
   setBands(newBands) {
-    this.bands = parseInt(newBands) || 1024;
+    this.bands = parseInt(newBands) || 2048;
     this.reallocateState();
     this.initFrequencies();
     this.reset();
@@ -501,7 +501,7 @@ class KalpanaPhaseKernel {
     const meta = JSON.parse(metaJson);
     
     this.numHeads = meta.numHeads || 8;
-    this.bands = meta.bands || 1024;
+    this.bands = meta.bands || 2048;
     this.headDim = meta.headDim || 64;
     this.kappa = meta.kappa || 2.0;
     this.totalTokensIngested = meta.totalTokens || 0;
