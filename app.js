@@ -979,7 +979,10 @@ async function initKalpanaApp() {
       contentDiv.className = 'msg-content streaming-cursor';
       assistantBubble.appendChild(contentDiv);
       chatMessages.appendChild(assistantBubble);
-      chatMessages.scrollTop = chatMessages.scrollHeight;
+      // Smart scroll: scroll to bottom of the page to show new content
+      requestAnimationFrame(() => {
+        window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+      });
 
       let fullResponse = '';
       let tokenCount = 0;
@@ -1061,7 +1064,16 @@ async function initKalpanaApp() {
           }
 
           contentDiv.innerHTML = formatMarkdown(fullResponse);
-          window.scrollTo({ top: document.body.scrollHeight, behavior: 'instant' });
+          // Only auto-scroll if user is near bottom (within 300px), to avoid locking scroll
+          if (tokenCount % 3 === 0) { // Throttle: scroll every 3rd token instead of every token
+            const scrollBottom = window.innerHeight + window.scrollY;
+            const docHeight = document.body.scrollHeight;
+            if (docHeight - scrollBottom < 300) {
+              requestAnimationFrame(() => {
+                window.scrollTo({ top: document.body.scrollHeight, behavior: 'instant' });
+              });
+            }
+          }
 
           // Real-time live VRAM metering fluctuation during matrix ops
           const dynamicVram = 142.5 + Math.sin(tokenCount * 0.45) * 3.8;
@@ -1215,7 +1227,9 @@ async function initKalpanaApp() {
       fallbackBubble.appendChild(footerDiv);
 
       chatMessages.appendChild(fallbackBubble);
-      chatMessages.scrollTop = chatMessages.scrollHeight;
+      requestAnimationFrame(() => {
+        window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+      });
 
       activeSession.messages.push({ role: "assistant", content: responseText, meta: meta });
       saveSessionsToStorage();
