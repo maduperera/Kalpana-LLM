@@ -363,6 +363,186 @@ async function initKalpanaApp() {
     return null;
   }
 
+  function lockChatInput(placeholderText) {
+    const input = document.getElementById('chatInput');
+    const sendBtn = document.getElementById('chatSendBtn');
+    const attachBtn = document.getElementById('chatAttachBtn');
+    const voiceBtn = document.getElementById('chatVoiceBtn');
+    const readoutBtn = document.getElementById('chatReadoutBtn');
+
+    if (input) {
+      input.disabled = true;
+      input.placeholder = placeholderText || '⚠️ WebGPU Context Provider Failed. Chat input locked...';
+      input.style.background = 'rgba(239, 68, 68, 0.08)';
+      input.style.borderColor = 'rgba(239, 68, 68, 0.45)';
+      input.style.boxShadow = '0 0 12px rgba(239, 68, 68, 0.15)';
+      input.style.cursor = 'not-allowed';
+    }
+    [sendBtn, attachBtn, voiceBtn, readoutBtn].forEach(btn => {
+      if (btn) {
+        btn.disabled = true;
+        btn.style.opacity = '0.35';
+        btn.style.cursor = 'not-allowed';
+        btn.style.pointerEvents = 'none';
+      }
+    });
+  }
+
+  function unlockChatInput(placeholderText) {
+    const input = document.getElementById('chatInput');
+    const sendBtn = document.getElementById('chatSendBtn');
+    const attachBtn = document.getElementById('chatAttachBtn');
+    const voiceBtn = document.getElementById('chatVoiceBtn');
+    const readoutBtn = document.getElementById('chatReadoutBtn');
+
+    if (input) {
+      input.disabled = false;
+      input.placeholder = placeholderText || 'Ask anything, attach files, or use voice...';
+      input.style.background = '';
+      input.style.borderColor = '';
+      input.style.boxShadow = '';
+      input.style.cursor = 'text';
+    }
+    [sendBtn, attachBtn, voiceBtn, readoutBtn].forEach(btn => {
+      if (btn) {
+        btn.disabled = false;
+        btn.style.opacity = '1';
+        btn.style.cursor = 'pointer';
+        btn.style.pointerEvents = 'auto';
+      }
+    });
+
+    const noticeBar = document.getElementById('webgpuInputNotice');
+    if (noticeBar) {
+      noticeBar.style.display = 'none';
+    }
+  }
+
+  function handleWebGPUFailure(err) {
+    isModelLoading = false;
+    isModelReady = false;
+
+    const globalBarContainer = document.getElementById('globalModelLoadingBarContainer');
+    if (globalBarContainer) globalBarContainer.style.display = 'none';
+
+    const errMessage = escapeHtml(err?.message || 'Unable to find a compatible GPU adapter.');
+
+    // 1. Render main highlighted hero warning banner
+    const banner = document.getElementById('qwenLoadBanner');
+    if (banner) {
+      banner.style.display = 'block';
+      banner.style.background = 'rgba(239, 68, 68, 0.12)';
+      banner.style.borderColor = 'rgba(239, 68, 68, 0.45)';
+      banner.style.borderRadius = '12px';
+      banner.style.padding = '16px';
+      banner.style.margin = '14px 0';
+      banner.style.boxShadow = '0 4px 20px rgba(239, 68, 68, 0.15)';
+      banner.innerHTML = `
+        <div style="display:flex;flex-direction:column;gap:10px;">
+          <div style="display:flex;align-items:center;gap:10px;color:#f87171;font-weight:700;font-size:0.9rem;">
+            <span style="font-size:1.25rem;">⚠️</span>
+            <span>WebGPU Hardware Acceleration Failed — Context Provider Unavailable</span>
+          </div>
+          <div style="font-size:0.8rem;color:var(--text-secondary);line-height:1.5;">
+            WebGPU context could not be initialized in your browser: <span style="color:#fca5a5;font-family:monospace;">${errMessage}</span>
+          </div>
+          <div style="background:rgba(0,0,0,0.4);border:1px solid rgba(239,68,68,0.3);border-radius:10px;padding:12px 14px;font-size:0.78rem;">
+            <div style="font-weight:700;color:#fff;margin-bottom:6px;display:flex;align-items:center;gap:6px;">
+              <span>🔧</span> How to Enable WebGPU in your Browser:
+            </div>
+            <ol style="margin:0 0 0 18px;padding:0;color:var(--text-muted);line-height:1.7;">
+              <li><strong>Google Chrome & Microsoft Edge:</strong> Update to Chrome/Edge 113+. Navigate to <code style="color:var(--cyan-300);background:rgba(255,255,255,0.08);padding:2px 6px;border-radius:4px;">chrome://flags/#enable-unsafe-webgpu</code>, set to <strong style="color:#34d399;">Enabled</strong>, and restart your browser.</li>
+              <li><strong>macOS Safari:</strong> Upgrade to macOS Sequoia (Safari 18+ includes WebGPU enabled by default). On Safari 17, enable under <code style="color:var(--cyan-300);">Develop &rarr; Feature Flags &rarr; WebGPU</code>.</li>
+              <li><strong>Hardware & Drivers:</strong> Verify WebGPU compatibility at <a href="https://webgpureport.org/" target="_blank" rel="noopener" style="color:var(--cyan-400);text-decoration:underline;font-weight:600;">webgpureport.org</a>.</li>
+            </ol>
+          </div>
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-top:4px;flex-wrap:wrap;gap:8px;">
+            <button id="enableOfflineBypassBtn" style="background:rgba(56,189,248,0.18);border:1px solid rgba(56,189,248,0.5);color:var(--cyan-300);padding:7px 14px;border-radius:8px;font-size:0.78rem;font-weight:700;cursor:pointer;transition:all 0.2s;">
+              ⚡ Unlock Input for Knowledge Pack / RAG Offline Mode
+            </button>
+            <div style="display:flex;align-items:center;gap:6px;color:#f87171;font-size:0.75rem;font-weight:700;">
+              <span>🔒</span> Chat Input Box Disabled Until Resolved
+            </div>
+          </div>
+        </div>
+      `;
+
+      const bypassBtn = document.getElementById('enableOfflineBypassBtn');
+      if (bypassBtn) {
+        bypassBtn.addEventListener('click', () => {
+          unlockChatInput('⚡ Knowledge Pack / RAG Offline Mode Active');
+          showToast('info', 'Input Unlocked', 'You can now query active Knowledge Packs and RIF memory without GPU inference.');
+        });
+      }
+    }
+
+    // 2. Render sticky highlighted notification bar attached directly above the chat bar
+    let inputNotice = document.getElementById('webgpuInputNotice');
+    const inputWrapper = document.querySelector('.chat-input-wrapper');
+    if (!inputNotice && inputWrapper) {
+      inputNotice = document.createElement('div');
+      inputNotice.id = 'webgpuInputNotice';
+      inputWrapper.insertBefore(inputNotice, inputWrapper.firstChild);
+    }
+
+    if (inputNotice) {
+      inputNotice.style.display = 'flex';
+      inputNotice.style.alignItems = 'center';
+      inputNotice.style.justifyContent = 'space-between';
+      inputNotice.style.background = 'rgba(239, 68, 68, 0.12)';
+      inputNotice.style.border = '1px solid rgba(239, 68, 68, 0.45)';
+      inputNotice.style.borderRadius = '10px';
+      inputNotice.style.padding = '10px 14px';
+      inputNotice.style.marginBottom = '10px';
+      inputNotice.style.flexWrap = 'wrap';
+      inputNotice.style.gap = '8px';
+      inputNotice.style.boxShadow = '0 0 15px rgba(239, 68, 68, 0.18)';
+      
+      inputNotice.innerHTML = `
+        <div style="display:flex;align-items:center;gap:10px;color:#f87171;font-size:0.8rem;font-weight:700;">
+          <span style="font-size:1.15rem;">⚠️</span>
+          <div>
+            <span>WebGPU Hardware Acceleration Disabled — Chat Input Box Locked</span>
+            <div style="font-size:0.72rem;color:var(--text-muted);font-weight:400;margin-top:2px;">
+              Enable WebGPU in browser (<code style="color:var(--cyan-300);">chrome://flags/#enable-unsafe-webgpu</code>) or unlock offline mode.
+            </div>
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;margin-left:auto;">
+          <button id="noticeGuideBtn" style="background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.2);color:#fff;padding:5px 10px;border-radius:6px;font-size:0.74rem;font-weight:600;cursor:pointer;">
+            🔧 Guide
+          </button>
+          <button id="noticeBypassBtn" style="background:rgba(56,189,248,0.18);border:1px solid rgba(56,189,248,0.5);color:var(--cyan-300);padding:5px 10px;border-radius:6px;font-size:0.74rem;font-weight:700;cursor:pointer;">
+            ⚡ Unlock Offline RAG
+          </button>
+        </div>
+      `;
+
+      const noticeGuideBtn = document.getElementById('noticeGuideBtn');
+      if (noticeGuideBtn) {
+        noticeGuideBtn.addEventListener('click', () => {
+          const heroBanner = document.getElementById('qwenLoadBanner');
+          if (heroBanner) {
+            heroBanner.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          } else {
+            window.open('https://webgpureport.org/', '_blank');
+          }
+        });
+      }
+
+      const noticeBypassBtn = document.getElementById('noticeBypassBtn');
+      if (noticeBypassBtn) {
+        noticeBypassBtn.addEventListener('click', () => {
+          unlockChatInput('⚡ Knowledge Pack / RAG Offline Mode Active');
+          showToast('info', 'Input Unlocked', 'You can now query active Knowledge Packs and RIF memory.');
+        });
+      }
+    }
+
+    lockChatInput('⚠️ WebGPU Disabled in Browser. Enable WebGPU or unlock offline mode...');
+    showToast('error', 'WebGPU Failed', 'Unable to create WebGPU Context Provider. Chat input locked until enabled.');
+  }
+
   // 7. Background WebLLM SmolLM2 360M Initializer with Visual Progress Bar
   const FIXED_MODEL_ID = "SmolLM2-360M-Instruct-q4f16_1-MLC";
 
@@ -415,6 +595,7 @@ async function initKalpanaApp() {
     try {
       isModelLoading = true;
       isModelReady = false;
+      lockChatInput('⏳ Compiling WebGPU Shaders & Loading Model...');
       updateProgress('Connecting Hugging Face CDN for SmolLM2 360M...', 0.05);
 
       const webllm = await import("https://esm.run/@mlc-ai/web-llm");
@@ -428,6 +609,7 @@ async function initKalpanaApp() {
 
       isModelReady = true;
       isModelLoading = false;
+      unlockChatInput();
       updateLiveTelemetryHeader(142.5, false);
       console.log('🟢 SmolLM2 360M WebGPU Engine is READY!');
 
@@ -466,7 +648,8 @@ async function initKalpanaApp() {
         });
         isModelReady = true;
         isModelLoading = false;
-        
+        unlockChatInput();
+
         if (globalBarContainer) {
           if (globalBarText) globalBarText.textContent = '🟢 SmolLM2 360M Active (Universal FP32 Mode)';
           if (globalBarPct) globalBarPct.textContent = '100%';
@@ -486,32 +669,22 @@ async function initKalpanaApp() {
         }
       } catch (err2) {
         console.warn('WebGPU not supported on this device/browser:', err2);
-        isModelLoading = false;
-        isModelReady = false;
-
-        if (globalBarContainer) {
-          globalBarContainer.style.display = 'none';
-        }
-
-        const banner = getBanner();
-        if (banner) {
-          banner.style.background = 'rgba(251, 191, 36, 0.08)';
-          banner.style.borderColor = 'rgba(251, 191, 36, 0.3)';
-          banner.innerHTML = `
-            <div style="display:flex;align-items:center;gap:8px;color:var(--amber-400);font-size:0.78rem;">
-              <span>💡</span>
-              <span>Native Phase Attention Active (WebGPU not detected in this browser)</span>
-            </div>
-          `;
-        }
+        handleWebGPUFailure(err2);
       }
     }
   }
 
   // Start with balanced SmolLM2 360M (~140MB) in non-blocking background queue
-  setTimeout(() => {
-    loadWebLLMModel();
-  }, 400);
+  const hasWebGPU = typeof navigator !== 'undefined' && 'gpu' in navigator;
+  if (!hasWebGPU) {
+    setTimeout(() => {
+      handleWebGPUFailure(new Error('WebGPU API is not enabled in this browser.'));
+    }, 300);
+  } else {
+    setTimeout(() => {
+      loadWebLLMModel();
+    }, 400);
+  }
 
   // 8. ChatGPT-Style Multi-Chat Session Management System
   const SESSION_STORAGE_KEY = 'kalpana_chat_sessions_v2';
