@@ -985,40 +985,81 @@ async function initKalpanaApp() {
       let tokenCount = 0;
 
       try {
-        const evidenceText = evidenceShards.map((s, i) => `[Document ${i+1}: ${s.docTitle}]\n${s.text}`).join('\n\n---\n\n');
+        // SmolLM2-360M has very limited context — use top 2 shards, truncated to ~400 words total
+        const MAX_EVIDENCE_WORDS = 400;
+        let evidenceText = '';
+        let wordBudget = MAX_EVIDENCE_WORDS;
+        const llmShards = evidenceShards.slice(0, 2); // Only top 2 for the tiny model
+        for (const s of llmShards) {
+          const shardWords = s.text.split(/\s+/);
+          const allowed = shardWords.slice(0, wordBudget).join(' ');
+          evidenceText += allowed + '\n\n';
+          wordBudget -= Math.min(shardWords.length, wordBudget);
+          if (wordBudget <= 0) break;
+        }
+        evidenceText = evidenceText.trim();
+
+        // Keep system prompt SHORT for a 360M model
         const systemPrompt = isKnowledgePackMatch
-          ? `You are Kalpanā, an AI assistant with access to a knowledge base. IMPORTANT RULES:\n1. Answer the user's question ONLY using the provided document evidence below.\n2. If the evidence contains the answer, provide a detailed, accurate response citing specific facts from the documents.\n3. If the evidence does NOT contain enough information to answer, say "The knowledge pack does not contain enough information about this topic."\n4. Do NOT make up or hallucinate facts that are not in the evidence.\n5. Quote or paraphrase relevant passages when answering.`
-          : `You are Kalpanā, a helpful and direct AI assistant. Answer the user's questions clearly, accurately, and thoroughly.`;
+          ? `Answer the question using ONLY the provided evidence. Be accurate and concise.`
+          : `You are a helpful AI assistant. Answer clearly and accurately.`;
 
         const userPrompt = (isKnowledgePackMatch && evidenceText)
-          ? `=== RETRIEVED DOCUMENT EVIDENCE ===\n${evidenceText}\n=== END EVIDENCE ===\n\nUser Question: ${text}\n\nUsing ONLY the document evidence above, provide a thorough and accurate answer. Cite specific details from the documents.`
+          ? `Evidence:\n${evidenceText}\n\nQuestion: ${text}\n\nAnswer based on the evidence above:`
           : text;
 
-        // Build messages array with conversation history for context
-        const messages = [{ role: "system", content: systemPrompt }];
-        // Include last 4 conversation turns for follow-up context
-        const recentHistory = conversationHistory.slice(-8);
-        for (const msg of recentHistory) {
-          if (msg.role === 'user' || msg.role === 'assistant') {
-            messages.push({ role: msg.role, content: msg.content.slice(0, 300) });
-          }
-        }
-        // Add current prompt with evidence as the final user message
-        messages.push({ role: "user", content: userPrompt });
+        // Do NOT include conversation history — SmolLM2-360M context is too small
+        const messages = [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: userPrompt }
+        ];
 
         const completion = await webllmEngine.chat.completions.create({
           messages: messages,
           stream: true,
-          temperature: 0.15,
+          temperature: 0.1,
           presence_penalty: 0.3,
-          frequency_penalty: 0.3,
-          max_tokens: 600
+          frequency_penalty: 0.5,
+          max_tokens: 250
         });
+
+        // Garbage / repetition detection for small model degeneration
+        let lastChunks = [];
+        let garbageDetected = false;
 
         for await (const chunk of completion) {
           const delta = chunk.choices[0]?.delta?.content || '';
+          
+          // Detect garbage tokens: <|endoftext|>, <|end|>, repeated special tokens
+          if (delta.includes('<|') || delta.includes('|>') || delta.includes('<|endoftext|>')) {
+            garbageDetected = true;
+            break;
+          }
+
           fullResponse += delta;
           tokenCount++;
+
+          // Detect repetition: if last 5 chunks are identical, stop
+          lastChunks.push(delta.trim());
+          if (lastChunks.length > 8) lastChunks.shift();
+          if (lastChunks.length >= 5) {
+            const last5 = lastChunks.slice(-5);
+            if (last5.every(c => c === last5[0] && c.length > 0)) {
+              garbageDetected = true;
+              break;
+            }
+          }
+
+          // Detect long repeated substrings (e.g. "the the the the")
+          if (fullResponse.length > 80) {
+            const tail = fullResponse.slice(-60);
+            const pattern = tail.slice(0, 15);
+            if (pattern.length >= 5 && tail.split(pattern).length > 4) {
+              garbageDetected = true;
+              break;
+            }
+          }
+
           contentDiv.innerHTML = formatMarkdown(fullResponse);
           window.scrollTo({ top: document.body.scrollHeight, behavior: 'instant' });
 
@@ -1027,7 +1068,19 @@ async function initKalpanaApp() {
           updateLiveTelemetryHeader(dynamicVram, true);
         }
 
+        // Clean any trailing garbage from response
+        fullResponse = fullResponse
+          .replace(/<\|[^|]*\|>/g, '')  // Remove any <|...|> tokens
+          .replace(/(\b\w+\b)( \1){4,}/g, '$1')  // Remove word repetitions (5+)
+          .trim();
+        
+        if (!fullResponse || fullResponse.length < 3) {
+          fullResponse = 'The model could not generate a coherent response. Please refer to the document shards shown above for the answer.';
+        }
+
         contentDiv.classList.remove('streaming-cursor');
+        // Re-render the cleaned content (in case garbage was stripped)
+        contentDiv.innerHTML = formatMarkdown(fullResponse);
         conversationHistory.push({ role: "assistant", content: fullResponse });
 
         // Ingest generated response into RIF phase state
