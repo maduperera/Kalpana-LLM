@@ -458,7 +458,7 @@ async function initKalpanaApp() {
           </div>
           <div style="display:flex;align-items:center;justify-content:space-between;margin-top:4px;flex-wrap:wrap;gap:8px;">
             <button id="enableOfflineBypassBtn" style="background:rgba(56,189,248,0.18);border:1px solid rgba(56,189,248,0.5);color:var(--cyan-300);padding:7px 14px;border-radius:8px;font-size:0.78rem;font-weight:700;cursor:pointer;transition:all 0.2s;">
-              ⚡ Unlock Input for Knowledge Pack / RAG Offline Mode
+              ⚡ Unlock Input for Knowledge Pack & RIF Memory Queries
             </button>
             <div style="display:flex;align-items:center;gap:6px;color:#f87171;font-size:0.75rem;font-weight:700;">
               <span>🔒</span> Chat Input Box Disabled Until Resolved
@@ -470,7 +470,7 @@ async function initKalpanaApp() {
       const bypassBtn = document.getElementById('enableOfflineBypassBtn');
       if (bypassBtn) {
         bypassBtn.addEventListener('click', () => {
-          unlockChatInput('⚡ Knowledge Pack / RAG Offline Mode Active');
+          unlockChatInput('⚡ Knowledge Pack & RIF Memory Mode Active');
           showToast('info', 'Input Unlocked', 'You can now query active Knowledge Packs and RIF memory without GPU inference.');
         });
       }
@@ -504,7 +504,7 @@ async function initKalpanaApp() {
           <div>
             <span>WebGPU Hardware Acceleration Disabled — Chat Input Box Locked</span>
             <div style="font-size:0.72rem;color:var(--text-muted);font-weight:400;margin-top:2px;">
-              Enable WebGPU in browser (<code style="color:var(--cyan-300);">chrome://flags/#enable-unsafe-webgpu</code>) or unlock offline mode.
+              Enable WebGPU in browser (<code style="color:var(--cyan-300);">chrome://flags/#enable-unsafe-webgpu</code>) or unlock Knowledge Pack search mode.
             </div>
           </div>
         </div>
@@ -513,7 +513,7 @@ async function initKalpanaApp() {
             🔧 Guide
           </button>
           <button id="noticeBypassBtn" style="background:rgba(56,189,248,0.18);border:1px solid rgba(56,189,248,0.5);color:var(--cyan-300);padding:5px 10px;border-radius:6px;font-size:0.74rem;font-weight:700;cursor:pointer;">
-            ⚡ Unlock Offline RAG
+            ⚡ Unlock Knowledge Pack Mode
           </button>
         </div>
       `;
@@ -533,13 +533,13 @@ async function initKalpanaApp() {
       const noticeBypassBtn = document.getElementById('noticeBypassBtn');
       if (noticeBypassBtn) {
         noticeBypassBtn.addEventListener('click', () => {
-          unlockChatInput('⚡ Knowledge Pack / RAG Offline Mode Active');
+          unlockChatInput('⚡ Knowledge Pack & RIF Memory Mode Active');
           showToast('info', 'Input Unlocked', 'You can now query active Knowledge Packs and RIF memory.');
         });
       }
     }
 
-    lockChatInput('⚠️ WebGPU Disabled in Browser. Enable WebGPU or unlock offline mode...');
+    lockChatInput('⚠️ WebGPU Disabled in Browser. Enable WebGPU or unlock Knowledge Pack mode...');
     showToast('error', 'WebGPU Failed', 'Unable to create WebGPU Context Provider. Chat input locked until enabled.');
   }
 
