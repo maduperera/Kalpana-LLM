@@ -375,7 +375,11 @@ async function initKalpanaApp() {
         if (globalBarFill) globalBarFill.style.width = `${pct}%`;
       }
 
-      // 2. Update Welcome Banner (if present)
+      // 2. Update Inline Chat Cards (if active in messages)
+      document.querySelectorAll('.chatInlineProgress').forEach(el => el.textContent = `${pct}%`);
+      document.querySelectorAll('.chatInlineFill').forEach(el => el.style.width = `${pct}%`);
+
+      // 3. Update Welcome Banner (if present)
       const banner = getBanner();
       if (banner) {
         banner.innerHTML = `
@@ -1238,13 +1242,38 @@ async function initKalpanaApp() {
       }
 
       if (!responseText) {
+        const hasWebGPU = typeof navigator !== 'undefined' && 'gpu' in navigator;
         if (isModelLoading || !isModelReady) {
-          responseText = `⏳ **SmolLM2 360M Neural Engine is compiling in WebGPU...**\n\n` +
-            `You asked: *"${escapeHtml(text)}"*.\n\n` +
-            `**Native Phase Attention Active:**\n` +
-            `- Persistent State: **${kernel.bands} Harmonic Bands** (${kernel.getMemoryUsageMB()} MB • FP16)\n` +
-            `- Internal KV Cache: **0 MB (Strictly Disabled / Replaced by RIF)**\n\n` +
-            `*Once WebGPU compilation completes in a few seconds (~5s), SmolLM2 360M will generate live answers for all questions!*`;
+          if (hasWebGPU) {
+            responseText = `⏳ **SmolLM2 360M Neural Engine is compiling in WebGPU...**\n\n` +
+              `<div class="inline-webgpu-card" style="margin:12px 0;background:rgba(15,23,42,0.7);border:1px solid rgba(56,189,248,0.3);border-radius:10px;padding:12px 14px;">` +
+              `  <div style="display:flex;justify-content:space-between;align-items:center;font-size:0.78rem;font-weight:700;color:#fff;margin-bottom:6px;">` +
+              `    <span>⚡ Compiling SmolLM2 360M GPU Shaders...</span>` +
+              `    <span class="chatInlineProgress" style="font-family:var(--font-mono);font-weight:700;color:var(--cyan-300);">Loading...</span>` +
+              `  </div>` +
+              `  <div style="width:100%;height:6px;background:rgba(255,255,255,0.1);border-radius:99px;overflow:hidden;">` +
+              `    <div class="chatInlineFill" style="width:40%;height:100%;background:linear-gradient(90deg, var(--cyan-400), var(--emerald-400));box-shadow:0 0 10px rgba(56,189,248,0.6);transition:width 0.3s ease;"></div>` +
+              `  </div>` +
+              `  <div style="font-size:0.68rem;color:var(--text-muted);margin-top:6px;display:flex;justify-content:space-between;">` +
+              `    <span>Downloading 140MB quantized weights into GPU VRAM</span>` +
+              `    <span>Automatic ready boot</span>` +
+              `  </div>` +
+              `</div>\n\n` +
+              `You asked: *"${escapeHtml(text)}"*.\n\n` +
+              `**Native Phase Attention Active:**\n` +
+              `- Persistent State: **${kernel.bands} Harmonic Bands** (${kernel.getMemoryUsageMB()} MB • FP16)\n` +
+              `- Internal KV Cache: **0 MB (Strictly Disabled / Replaced by RIF)**\n\n` +
+              `*Once compilation completes in a few seconds (~5s), SmolLM2 360M will generate live answers for all questions!*`;
+          } else {
+            responseText = `🤖 **Kalpanā Phase Core — Offline Response:**\n\n` +
+              `<div style="margin:10px 0;background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.3);border-radius:10px;padding:10px 12px;font-size:0.75rem;color:var(--amber-400);">` +
+              `  <strong>💡 WebGPU Not Detected in Browser:</strong> WebGPU is required for neural text generation. Please use Chrome 113+, Edge 113+, or Safari 18+ with WebGPU enabled.` +
+              `</div>\n\n` +
+              `You asked: *"${escapeHtml(text)}"*.\n\n` +
+              `**Native Phase Attention Active:**\n` +
+              `- Persistent State: **${kernel.bands} Harmonic Bands** (${kernel.getMemoryUsageMB()} MB • FP16)\n` +
+              `- Internal KV Cache: **0 MB (Strictly Disabled / Replaced by RIF)**`;
+          }
         } else {
           responseText = `🤖 **Kalpanā Phase Core — Offline Response:**\n\n` +
             `You asked: *"${escapeHtml(text)}"*.\n\n` +
