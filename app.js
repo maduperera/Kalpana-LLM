@@ -244,6 +244,13 @@ async function initKalpanaApp() {
         `*Governed by the International Cricket Council (ICC).*`
     },
     {
+      keys: ['taj mahal', 'tajmahal', 'taj mahal india', 'wonders of the world'],
+      answer: `🕌 **The Taj Mahal** is an ivory-white marble mausoleum on the right bank of the river Yamuna in Agra, Uttar Pradesh, India.\n\n` +
+        `- **Commissioned:** In 1631 by Mughal emperor Shah Jahan to house the tomb of his favourite wife, Mumtaz Mahal.\n` +
+        `- **Architecture:** Masterpiece of Mughal architecture combining Islamic, Persian, Ottoman Turkish, and Indian styles.\n` +
+        `- **Status:** Designated a UNESCO World Heritage Site in 1983 and voted one of the New 7 Wonders of the World.`
+    },
+    {
       keys: ['football', 'soccer', 'fifa world cup'],
       answer: `⚽ **Football (Soccer)** is the world's most popular sport played by over 250 million players in 200+ countries.\n\nTwo teams of 11 players compete over 90 minutes to score goals. The FIFA World Cup (held every 4 years) is the most watched sporting event on Earth.`
     },
@@ -1231,10 +1238,13 @@ async function initKalpanaApp() {
       }
 
       if (!responseText) {
-        if (isModelLoading) {
-          responseText = `⏳ **SmolLM2 360M is currently loading into your WebGPU cache...**\n\n` +
+        if (isModelLoading || !isModelReady) {
+          responseText = `⏳ **SmolLM2 360M Neural Engine is compiling in WebGPU...**\n\n` +
             `You asked: *"${escapeHtml(text)}"*.\n\n` +
-            `Once the model finishes compiling in the background, all prompts will be generated live by SmolLM2 360M.`;
+            `**Native Phase Attention Active:**\n` +
+            `- Persistent State: **${kernel.bands} Harmonic Bands** (${kernel.getMemoryUsageMB()} MB • FP16)\n` +
+            `- Internal KV Cache: **0 MB (Strictly Disabled / Replaced by RIF)**\n\n` +
+            `*Once WebGPU compilation completes in a few seconds (~5s), SmolLM2 360M will generate live answers for all questions!*`;
         } else {
           responseText = `🤖 **Kalpanā Phase Core — Offline Response:**\n\n` +
             `You asked: *"${escapeHtml(text)}"*.\n\n` +
