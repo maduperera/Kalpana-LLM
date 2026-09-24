@@ -251,6 +251,18 @@ async function initKalpanaApp() {
         `- **Status:** Designated a UNESCO World Heritage Site in 1983 and voted one of the New 7 Wonders of the World.`
     },
     {
+      keys: ['negombo', 'where is negombo'],
+      answer: `🌊 **Negombo** is a major city in Sri Lanka, located on the west coast of the island at the mouth of the Negombo Lagoon, in the Western Province.\n\n` +
+        `- **Location:** Approximately 37 km (23 miles) north of Colombo, and just 7 km from Bandaranaike International Airport (CMB).\n` +
+        `- **Known for:** Its long sandy beaches, centuries-old fishing industry, Dutch Fort (1672), scenic lagoon canals, and rich Catholic heritage ("Little Rome").`
+    },
+    {
+      keys: ['sri lanka', 'colombo'],
+      answer: `🇱🇰 **Sri Lanka** (formerly Ceylon) is an island country in South Asia, located in the Indian Ocean southwest of the Bay of Bengal.\n\n` +
+        `- **Capital:** Sri Jayawardenepura Kotte (legislative) / Colombo (commercial).\n` +
+        `- **Known for:** Rich history spanning 3,000+ years, tea production (Ceylon Tea), diverse ecosystems, and UNESCO heritage sites.`
+    },
+    {
       keys: ['football', 'soccer', 'fifa world cup'],
       answer: `⚽ **Football (Soccer)** is the world's most popular sport played by over 250 million players in 200+ countries.\n\nTwo teams of 11 players compete over 90 minutes to score goals. The FIFA World Cup (held every 4 years) is the most watched sporting event on Earth.`
     },
@@ -1275,12 +1287,22 @@ async function initKalpanaApp() {
               `- Internal KV Cache: **0 MB (Strictly Disabled / Replaced by RIF)**`;
           }
         } else {
-          responseText = `🤖 **Kalpanā Phase Core — Offline Response:**\n\n` +
+          responseText = `🤖 **Kalpanā Phase Core — Native Response:**\n\n` +
             `You asked: *"${escapeHtml(text)}"*.\n\n` +
             `**Native Phase Attention Active:**\n` +
             `- Persistent State: **${kernel.bands} Harmonic Bands** (${kernel.getMemoryUsageMB()} MB • FP16)\n` +
             `- Internal KV Cache: **0 MB (Strictly Disabled / Replaced by RIF)**\n\n` +
-            `To enable neural text generation, use a WebGPU-enabled browser (Chrome 113+, Edge 113+, Safari 18+).`;
+            `<div style="margin:12px 0;background:rgba(56,189,248,0.06);border:1px solid rgba(56,189,248,0.25);border-radius:10px;padding:12px 14px;font-size:0.75rem;">` +
+            `  <div style="font-weight:700;color:var(--cyan-300);margin-bottom:4px;">⚡ How to Enable WebGPU for Live Neural Generation:</div>` +
+            `  <div style="color:var(--text-secondary);margin-bottom:6px;">` +
+            `    WebGPU is required for running neural LLM weights directly inside browser GPU VRAM.` +
+            `  </div>` +
+            `  <ul style="margin:4px 0 0 16px;padding:0;color:var(--text-muted);line-height:1.5;">` +
+            `    <li><strong>Google Chrome / Microsoft Edge:</strong> Update to Chrome 113+ and open <code>chrome://flags/#enable-unsafe-webgpu</code> &rarr; set to <strong>Enabled</strong>.</li>` +
+            `    <li><strong>macOS Safari:</strong> Safari 18+ (macOS Sequoia / iOS 18) enables WebGPU natively. On Safari 17: enable <code>Develop &rarr; Feature Flags &rarr; WebGPU</code>.</li>` +
+            `    <li>Test device compatibility at <a href="https://webgpureport.org/" target="_blank" style="color:var(--cyan-400)">webgpureport.org</a>.</li>` +
+            `  </ul>` +
+            `</div>`;
         }
       }
 
