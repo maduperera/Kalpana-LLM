@@ -1,6 +1,7 @@
 # Proprietary Kernel Protection
 core.py
 core.pyc
+kernel.ts
 qwen_rif.py
 api_server.py
 deploy_to_hf.py

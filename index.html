@@ -64,14 +64,19 @@
         </div>
       </div>
 
-      <!-- Architecture Specifications Sidebar Card -->
+      <!-- Architecture Specifications & Paradigm Selector Sidebar Card -->
       <div style="margin: 12px 16px 14px; background: rgba(255,255,255,0.03); border: 1px solid var(--border-subtle); border-radius: 12px; padding: 12px 14px;">
-        <div style="font-size: 0.72rem; color: var(--text-muted); font-family: var(--font-mono); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.05em;">Attention Engine</div>
-        <div style="display:flex;align-items:center;gap:8px;">
-          <span style="width:8px;height:8px;border-radius:50%;background:#34d399;display:inline-block;box-shadow:0 0 8px #34d399;"></span>
-          <span style="font-size:0.82rem;font-weight:700;color:#34d399;">True O(1) Attention</span>
+        <div style="font-size: 0.72rem; color: var(--text-muted); font-family: var(--font-mono); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.05em; display:flex; justify-content:space-between; align-items:center;">
+          <span>Attention Engine</span>
+          <span class="badge badge-purple" style="font-size:0.55rem;padding:1px 5px;" id="paradigmBadge">Paradigm A</span>
         </div>
-        <div style="font-size:0.72rem;color:var(--text-secondary);margin-top:6px;">Internal KV Cache: <strong style="color:var(--rose-400);">DISABLED (0 MB)</strong></div>
+        <div style="margin-bottom:8px;">
+          <select id="paradigmSelect" style="width:100%;background:rgba(0,0,0,0.4);color:#34d399;border:1px solid var(--border-subtle);border-radius:6px;padding:4px 8px;font-size:0.75rem;font-weight:700;cursor:pointer;">
+            <option value="A" selected>⚡ Paradigm A: Native Phase Attention</option>
+            <option value="B">📦 Paradigm B: External Substrate RAG</option>
+          </select>
+        </div>
+        <div style="font-size:0.72rem;color:var(--text-secondary);">Internal KV Cache: <strong style="color:var(--rose-400);" id="kvCacheLabel">DISABLED (0 MB)</strong></div>
         <div style="font-size:0.72rem;color:var(--text-secondary);">Harmonic Bands: <strong style="color:var(--cyan-400);">2048 Bands</strong></div>
       </div>
 
