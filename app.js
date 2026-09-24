@@ -821,45 +821,109 @@ async function initKalpanaApp() {
     const sweepStart = performance.now();
 
     if (activePack && activePack.documents && activePack.documents.length > 0) {
-      const queryWords = text.toLowerCase().replace(/[^a-z0-9\s]/g, ' ').split(/\s+/).filter(w => w.length > 2 && !STOP_WORDS.has(w));
+      const queryLower = text.toLowerCase().replace(/[^a-z0-9\s]/g, ' ');
+      const queryWords = queryLower.split(/\s+/).filter(w => w.length > 2 && !STOP_WORDS.has(w));
+      // Also keep the full query phrase (minus stop words) for exact-phrase bonus
+      const queryPhrase = queryWords.join(' ');
       
       if (queryWords.length > 0) {
-        // Collect all 80-word overlapping shards across pack documents
+        // Build corpus-level document frequency (IDF) for BM25-style scoring
+        const allDocText = activePack.documents.map(d => sanitizeText(d.content || '').toLowerCase()).join(' ');
+        const totalCorpusWords = allDocText.split(/\s+/).length;
+
+        // Collect 200-word overlapping shards with 100-word stride (50% overlap)
+        const SHARD_WINDOW = 200;
+        const SHARD_STRIDE = 100;
         const allShards = [];
         for (const doc of activePack.documents) {
           const cleanText = sanitizeText(doc.content || '');
           const words = cleanText.split(/\s+/).filter(w => w.length > 0);
-          const totalShards = Math.max(1, Math.ceil(words.length / 80));
+          if (words.length === 0) continue;
+          
+          const totalShards = Math.max(1, Math.ceil((words.length - SHARD_WINDOW) / SHARD_STRIDE) + 1);
           for (let i = 0; i < totalShards; i++) {
-            const shardText = words.slice(i * 80, i * 80 + 120).join(' ');
-            if (shardText.trim().length > 20) {
-              const shardLower = shardText.toLowerCase();
-              let score = 0;
+            const startIdx = Math.min(i * SHARD_STRIDE, Math.max(0, words.length - SHARD_WINDOW));
+            const shardText = words.slice(startIdx, startIdx + SHARD_WINDOW).join(' ');
+            if (shardText.trim().length < 20) continue;
+            
+            const shardLower = shardText.toLowerCase();
+            const shardWordCount = shardText.split(/\s+/).length;
+            let score = 0;
+            let matchedTerms = 0;
+            
+            // BM25-inspired scoring with IDF weighting
+            const k1 = 1.2;
+            const b = 0.75;
+            const avgDl = 200; // average shard length
+            
+            for (const w of queryWords) {
+              // Use word-boundary matching to avoid partial substring matches
+              const wordRegex = new RegExp('\\b' + w.replace(/[.*+?^${}()|[\\]\\]/g, '\\$&') + '\\b', 'gi');
+              const matches = shardLower.match(wordRegex);
+              const tf = matches ? matches.length : 0;
+              
+              if (tf > 0) {
+                matchedTerms++;
+                // IDF approximation: rarer words in the corpus get higher weight
+                const corpusMatches = allDocText.match(wordRegex);
+                const df = corpusMatches ? corpusMatches.length : 1;
+                const idf = Math.log(1 + (totalCorpusWords - df + 0.5) / (df + 0.5));
+                
+                // BM25 term frequency saturation
+                const tfNorm = (tf * (k1 + 1)) / (tf + k1 * (1 - b + b * (shardWordCount / avgDl)));
+                score += idf * tfNorm;
+              }
+            }
+            
+            // Bonus: exact multi-word phrase match
+            if (queryPhrase.length > 3 && shardLower.includes(queryPhrase)) {
+              score += 5.0;
+            }
+            
+            // Bonus: reward shards where query terms appear close together (proximity)
+            if (matchedTerms >= 2) {
+              const positions = [];
               for (const w of queryWords) {
-                const count = shardLower.split(w).length - 1;
-                if (count > 0) score += count * 2.5;
+                const idx = shardLower.indexOf(w);
+                if (idx >= 0) positions.push(idx);
               }
-              if (score > 0) {
-                allShards.push({
-                  docTitle: doc.title,
-                  text: shardText,
-                  score: score,
-                  latency: (performance.now() - sweepStart) + (Math.random() * 0.05 + 7.18)
-                });
+              if (positions.length >= 2) {
+                positions.sort((a, b) => a - b);
+                const span = positions[positions.length - 1] - positions[0];
+                if (span < 200) score += 2.0; // terms within ~30 words of each other
               }
+            }
+            
+            // Bonus: reward shards that match MORE of the query terms (coverage)
+            if (matchedTerms > 0) {
+              score *= (1 + 0.3 * (matchedTerms / queryWords.length));
+            }
+            
+            if (score > 0) {
+              allShards.push({
+                docTitle: doc.title,
+                text: shardText,
+                score: score,
+                matchedTerms: matchedTerms,
+                latency: (performance.now() - sweepStart) + (Math.random() * 0.05 + 7.18)
+              });
             }
           }
         }
 
         allShards.sort((a, b) => b.score - a.score);
 
-        // De-duplicate overlapping shards for clean presentation
+        // De-duplicate overlapping shards — keep top 5 distinct passages
         const distinct = [];
         for (const item of allShards) {
-          if (!distinct.some(d => d.text.includes(item.text.slice(0, 40)) || item.text.includes(d.text.slice(0, 40)))) {
+          const isDuplicate = distinct.some(d => {
+            const overlap = d.text.slice(0, 60);
+            return item.text.includes(overlap) || d.text.includes(item.text.slice(0, 60));
+          });
+          if (!isDuplicate) {
             distinct.push(item);
           }
-          if (distinct.length >= 2) break;
+          if (distinct.length >= 5) break;
         }
 
         if (distinct.length > 0) {
@@ -921,25 +985,34 @@ async function initKalpanaApp() {
       let tokenCount = 0;
 
       try {
-        const evidenceText = evidenceShards.map(s => s.text).join('\n\n');
+        const evidenceText = evidenceShards.map((s, i) => `[Document ${i+1}: ${s.docTitle}]\n${s.text}`).join('\n\n---\n\n');
         const systemPrompt = isKnowledgePackMatch
-          ? `You are Kalpanā, an intelligent and helpful AI assistant. Answer the user's question clearly, thoroughly, and accurately based on the provided evidence.`
+          ? `You are Kalpanā, an AI assistant with access to a knowledge base. IMPORTANT RULES:\n1. Answer the user's question ONLY using the provided document evidence below.\n2. If the evidence contains the answer, provide a detailed, accurate response citing specific facts from the documents.\n3. If the evidence does NOT contain enough information to answer, say "The knowledge pack does not contain enough information about this topic."\n4. Do NOT make up or hallucinate facts that are not in the evidence.\n5. Quote or paraphrase relevant passages when answering.`
           : `You are Kalpanā, a helpful and direct AI assistant. Answer the user's questions clearly, accurately, and thoroughly.`;
 
         const userPrompt = (isKnowledgePackMatch && evidenceText)
-          ? `Recalled Document Evidence:\n${evidenceText}\n\nQuestion: ${text}\n\nINSTRUCTION: From the evidence provided above, explain the answer thoroughly with key facts. If the evidence does not contain the answer, answer using general knowledge.`
+          ? `=== RETRIEVED DOCUMENT EVIDENCE ===\n${evidenceText}\n=== END EVIDENCE ===\n\nUser Question: ${text}\n\nUsing ONLY the document evidence above, provide a thorough and accurate answer. Cite specific details from the documents.`
           : text;
 
+        // Build messages array with conversation history for context
+        const messages = [{ role: "system", content: systemPrompt }];
+        // Include last 4 conversation turns for follow-up context
+        const recentHistory = conversationHistory.slice(-8);
+        for (const msg of recentHistory) {
+          if (msg.role === 'user' || msg.role === 'assistant') {
+            messages.push({ role: msg.role, content: msg.content.slice(0, 300) });
+          }
+        }
+        // Add current prompt with evidence as the final user message
+        messages.push({ role: "user", content: userPrompt });
+
         const completion = await webllmEngine.chat.completions.create({
-          messages: [
-            { role: "system", content: systemPrompt },
-            { role: "user", content: userPrompt }
-          ],
+          messages: messages,
           stream: true,
-          temperature: 0.25,
-          presence_penalty: 0.4,
-          frequency_penalty: 0.4,
-          max_tokens: 350
+          temperature: 0.15,
+          presence_penalty: 0.3,
+          frequency_penalty: 0.3,
+          max_tokens: 600
         });
 
         for await (const chunk of completion) {
@@ -1016,9 +1089,11 @@ async function initKalpanaApp() {
       let responseText = '';
       if (isKnowledgePackMatch && evidenceShards.length > 0) {
         const shardCombined = evidenceShards.map(s => s.text).join('\n\n');
-        responseText = `From the evidence provided:\n\n` +
-          `• ${evidenceShards[0].text.slice(0, 300)}...\n\n` +
-          (evidenceShards[1] ? `• ${evidenceShards[1].text.slice(0, 300)}...` : '');
+        // Use cleanDirectAnswer to extract the most relevant sentences matching the query
+        const directAnswer = cleanDirectAnswer(shardCombined, text);
+        responseText = `From the evidence provided:\n\n${directAnswer}\n\n` +
+          `**Source Documents:**\n` +
+          evidenceShards.map((s, i) => `• **${escapeHtml(s.docTitle)}** — "${s.text.slice(0, 150)}..."`).join('\n');
       } else {
         responseText = getOfflineKnowledgeResponse(text);
       }
@@ -1299,17 +1374,31 @@ async function initKalpanaApp() {
     
     const queryTerms = query.toLowerCase().split(/\s+/).filter(t => t.length > 2);
     
-    // Find matching sentences
-    const matched = sentences.filter(s => {
+    // Score each sentence by how many query terms it contains
+    const scored = sentences.map(s => {
       const lower = s.toLowerCase();
-      return queryTerms.some(term => lower.includes(term));
+      let score = 0;
+      let matches = 0;
+      for (const term of queryTerms) {
+        if (lower.includes(term)) {
+          score += 1.5;
+          matches++;
+        }
+      }
+      // Bonus for matching multiple terms
+      if (matches >= 2) score *= 1.5;
+      return { text: s, score, matches };
     });
 
+    // Sort by score descending, then take top results
+    scored.sort((a, b) => b.score - a.score);
+    
+    const matched = scored.filter(s => s.score > 0);
     if (matched.length > 0) {
-      return matched.slice(0, 4).join(' ');
+      return matched.slice(0, 6).map(s => s.text).join(' ');
     }
 
-    return sentences.slice(0, 3).join(' ');
+    return sentences.slice(0, 4).join(' ');
   }
 
   // File Attachments Ingestion
