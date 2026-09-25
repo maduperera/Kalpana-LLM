@@ -34,25 +34,99 @@ async function initKalpanaApp() {
   let isModelReady = false;
   let conversationHistory = [];
 
+  // Helper: Detect Browser & Operating System
+  function getBrowserInfo() {
+    const ua = navigator.userAgent || '';
+    const isIOS = /iPhone|iPad|iPod/.test(ua);
+    const isMac = /Macintosh|Mac OS X/.test(ua) && !isIOS;
+    const isWindows = /Windows/.test(ua);
+    const isAndroid = /Android/.test(ua);
+
+    let browserName = 'Chrome';
+    if (/Firefox\/|FFX\//.test(ua)) {
+      browserName = 'Firefox';
+    } else if (/Edg\//.test(ua)) {
+      browserName = 'Edge';
+    } else if (/Brave\//.test(ua) || (navigator.brave && typeof navigator.brave.isBrave === 'function')) {
+      browserName = 'Brave';
+    } else if (/Safari\//.test(ua) && !/Chrome\//.test(ua) && !/Chromium\//.test(ua)) {
+      browserName = 'Safari';
+    } else if (/Chrome\//.test(ua)) {
+      browserName = 'Chrome';
+    }
+
+    const isDesktop = isMac || isWindows || (!isIOS && !isAndroid);
+    const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+
+    return { browserName, isMac, isWindows, isIOS, isAndroid, isDesktop, isStandalone };
+  }
+
+  // Update PWA Install UI based on Platform & Browser
+  function updateInstallButtonUI() {
+    const info = getBrowserInfo();
+    const headerInstallBtn = document.getElementById('headerInstallBtn');
+    const headerInstallIcon = document.getElementById('headerInstallIcon');
+    const headerInstallText = document.getElementById('headerInstallText');
+    const sidebarInstallBtn = document.getElementById('installAppBtn');
+
+    if (info.isStandalone) {
+      if (headerInstallBtn) headerInstallBtn.style.display = 'none';
+      if (sidebarInstallBtn) sidebarInstallBtn.style.display = 'none';
+      return;
+    }
+
+    if (info.isMac && info.browserName === 'Safari') {
+      if (headerInstallIcon) headerInstallIcon.textContent = '💻';
+      if (headerInstallText) headerInstallText.textContent = 'Add to Dock';
+      if (sidebarInstallBtn) sidebarInstallBtn.textContent = '💻 Add to Dock';
+    } else if (info.isDesktop) {
+      if (headerInstallIcon) headerInstallIcon.textContent = '💻';
+      if (headerInstallText) headerInstallText.textContent = 'Install Desktop App';
+      if (sidebarInstallBtn) sidebarInstallBtn.textContent = '💻 Install Desktop App';
+    } else {
+      if (headerInstallIcon) headerInstallIcon.textContent = '📱';
+      if (headerInstallText) headerInstallText.textContent = 'Install App';
+      if (sidebarInstallBtn) sidebarInstallBtn.textContent = '📱 Install App';
+    }
+  }
+
   // 4. PWA Installation Event Handling
   window.addEventListener('beforeinstallprompt', (e) => {
     e.preventDefault();
     deferredInstallPrompt = e;
+    updateInstallButtonUI();
   });
+
+  document.addEventListener('DOMContentLoaded', updateInstallButtonUI);
+  updateInstallButtonUI();
 
   const installBtns = [document.getElementById('installAppBtn'), document.getElementById('headerInstallBtn')];
   installBtns.forEach((btn) => {
     if (btn) {
       btn.addEventListener('click', async () => {
+        const info = getBrowserInfo();
         if (deferredInstallPrompt) {
-          deferredInstallPrompt.prompt();
-          const { outcome } = await deferredInstallPrompt.userChoice;
-          if (outcome === 'accepted') {
-            showToast('success', 'Installed!', 'Kalpanā LLM is now installed on your device.');
+          try {
+            deferredInstallPrompt.prompt();
+            const { outcome } = await deferredInstallPrompt.userChoice;
+            if (outcome === 'accepted') {
+              showToast('success', 'Installed!', 'Kalpanā LLM is now installed on your device.');
+              updateInstallButtonUI();
+            }
+          } catch (err) {
+            console.warn('Install prompt error:', err);
           }
           deferredInstallPrompt = null;
         } else {
-          showToast('info', 'Install Kalpanā App', 'To install on iOS Safari: tap Share (⎋) ➔ Add to Home Screen (+). On Chrome/Edge: click Install in the address bar.');
+          if (info.isMac && info.browserName === 'Safari') {
+            showToast('info', '💻 Add to macOS Dock', 'To install on macOS Safari: Click "File" in your top macOS menu bar ➔ select "Add to Dock..."');
+          } else if (info.isDesktop) {
+            showToast('info', '💻 Install Desktop App', `To install on ${info.browserName}: Click the Install icon (📥) in the right side of your browser URL bar.`);
+          } else if (info.isIOS) {
+            showToast('info', '📱 Add to Home Screen', 'To install on iOS Safari: tap Share (⎋) ➔ Add to Home Screen (+)');
+          } else {
+            showToast('info', '📱 Install App', 'Tap browser menu (⋮) ➔ Add to Home Screen / Install App.');
+          }
         }
       });
     }
@@ -426,6 +500,57 @@ async function initKalpanaApp() {
     if (globalBarContainer) globalBarContainer.style.display = 'none';
 
     const errMessage = escapeHtml(err?.message || 'Unable to find a compatible GPU adapter.');
+    const info = getBrowserInfo();
+
+    let browserGuideHtml = '';
+    let stickyNoticeTip = '';
+
+    if (info.browserName === 'Safari') {
+      stickyNoticeTip = `Enable WebGPU in Safari (Develop ➔ Feature Flags ➔ WebGPU or update to macOS Sequoia Safari 18+).`;
+      browserGuideHtml = `
+        <div style="background:rgba(0,0,0,0.4);border:1px solid rgba(239,68,68,0.3);border-radius:10px;padding:12px 14px;font-size:0.78rem;">
+          <div style="font-weight:700;color:#fff;margin-bottom:6px;display:flex;align-items:center;gap:6px;">
+            <span>🔧</span> How to Enable WebGPU in Safari (macOS):
+          </div>
+          <ol style="margin:0 0 0 18px;padding:0;color:var(--text-muted);line-height:1.7;">
+            <li><strong>Safari 18+ (macOS Sequoia):</strong> Open <strong>Safari ➔ Settings (⌘,) ➔ Advanced</strong> ➔ Check <em>"Show features for web developers"</em>. Then in menu bar: <strong>Develop ➔ Feature Flags ➔ WebGPU</strong>.</li>
+            <li><strong>Safari 17 (macOS Sonoma):</strong> Open <strong>Safari ➔ Settings ➔ Advanced</strong>, enable developer features, then check <strong>Develop ➔ Feature Flags ➔ WebGPU</strong> (or <em>Experimental Features</em>).</li>
+            <li><strong>Google Chrome / Edge on Mac:</strong> Alternatively, open in Chrome 113+ where WebGPU is hardware accelerated out-of-the-box at <code style="color:var(--cyan-300);">chrome://flags/#enable-unsafe-webgpu</code>.</li>
+            <li>Test GPU compatibility at <a href="https://webgpureport.org/" target="_blank" rel="noopener" style="color:var(--cyan-400);text-decoration:underline;font-weight:600;">webgpureport.org</a>.</li>
+          </ol>
+        </div>
+      `;
+    } else if (info.browserName === 'Firefox') {
+      stickyNoticeTip = `Enable dom.webgpu.enabled in Firefox about:config and restart browser.`;
+      browserGuideHtml = `
+        <div style="background:rgba(0,0,0,0.4);border:1px solid rgba(239,68,68,0.3);border-radius:10px;padding:12px 14px;font-size:0.78rem;">
+          <div style="font-weight:700;color:#fff;margin-bottom:6px;display:flex;align-items:center;gap:6px;">
+            <span>🔧</span> How to Enable WebGPU in Firefox:
+          </div>
+          <ol style="margin:0 0 0 18px;padding:0;color:var(--text-muted);line-height:1.7;">
+            <li>Open <code style="color:var(--cyan-300);">about:config</code> in your address bar and accept the risk warning.</li>
+            <li>Search for <code style="color:var(--cyan-300);">dom.webgpu.enabled</code> and toggle it to <strong style="color:#34d399;">true</strong>.</li>
+            <li>Restart Firefox and verify at <a href="https://webgpureport.org/" target="_blank" rel="noopener" style="color:var(--cyan-400);text-decoration:underline;font-weight:600;">webgpureport.org</a>.</li>
+          </ol>
+        </div>
+      `;
+    } else {
+      // Chrome, Edge, Brave, etc.
+      stickyNoticeTip = `Enable WebGPU in ${info.browserName} (<code style="color:var(--cyan-300);">chrome://flags/#enable-unsafe-webgpu</code>) and relaunch.`;
+      browserGuideHtml = `
+        <div style="background:rgba(0,0,0,0.4);border:1px solid rgba(239,68,68,0.3);border-radius:10px;padding:12px 14px;font-size:0.78rem;">
+          <div style="font-weight:700;color:#fff;margin-bottom:6px;display:flex;align-items:center;gap:6px;">
+            <span>🔧</span> How to Enable WebGPU in ${info.browserName}:
+          </div>
+          <ol style="margin:0 0 0 18px;padding:0;color:var(--text-muted);line-height:1.7;">
+            <li>Update ${info.browserName} to version 113 or newer.</li>
+            <li>Navigate to <code style="color:var(--cyan-300);background:rgba(255,255,255,0.08);padding:2px 6px;border-radius:4px;">chrome://flags/#enable-unsafe-webgpu</code> in address bar.</li>
+            <li>Set <strong>Unsafe WebGPU Support</strong> to <strong style="color:#34d399;">Enabled</strong> and click <strong>Relaunch</strong>.</li>
+            <li>Test GPU status at <a href="https://webgpureport.org/" target="_blank" rel="noopener" style="color:var(--cyan-400);text-decoration:underline;font-weight:600;">webgpureport.org</a>.</li>
+          </ol>
+        </div>
+      `;
+    }
 
     // 1. Render main highlighted hero warning banner
     const banner = document.getElementById('qwenLoadBanner');
@@ -441,21 +566,12 @@ async function initKalpanaApp() {
         <div style="display:flex;flex-direction:column;gap:10px;">
           <div style="display:flex;align-items:center;gap:10px;color:#f87171;font-weight:700;font-size:0.9rem;">
             <span style="font-size:1.25rem;">⚠️</span>
-            <span>WebGPU Hardware Acceleration Failed — Context Provider Unavailable</span>
+            <span>WebGPU Hardware Acceleration Failed (${escapeHtml(info.browserName)}) — Context Provider Unavailable</span>
           </div>
           <div style="font-size:0.8rem;color:var(--text-secondary);line-height:1.5;">
-            WebGPU context could not be initialized in your browser: <span style="color:#fca5a5;font-family:monospace;">${errMessage}</span>
+            WebGPU context could not be initialized in ${escapeHtml(info.browserName)}: <span style="color:#fca5a5;font-family:monospace;">${errMessage}</span>
           </div>
-          <div style="background:rgba(0,0,0,0.4);border:1px solid rgba(239,68,68,0.3);border-radius:10px;padding:12px 14px;font-size:0.78rem;">
-            <div style="font-weight:700;color:#fff;margin-bottom:6px;display:flex;align-items:center;gap:6px;">
-              <span>🔧</span> How to Enable WebGPU in your Browser:
-            </div>
-            <ol style="margin:0 0 0 18px;padding:0;color:var(--text-muted);line-height:1.7;">
-              <li><strong>Google Chrome & Microsoft Edge:</strong> Update to Chrome/Edge 113+. Navigate to <code style="color:var(--cyan-300);background:rgba(255,255,255,0.08);padding:2px 6px;border-radius:4px;">chrome://flags/#enable-unsafe-webgpu</code>, set to <strong style="color:#34d399;">Enabled</strong>, and restart your browser.</li>
-              <li><strong>macOS Safari:</strong> Upgrade to macOS Sequoia (Safari 18+ includes WebGPU enabled by default). On Safari 17, enable under <code style="color:var(--cyan-300);">Develop &rarr; Feature Flags &rarr; WebGPU</code>.</li>
-              <li><strong>Hardware & Drivers:</strong> Verify WebGPU compatibility at <a href="https://webgpureport.org/" target="_blank" rel="noopener" style="color:var(--cyan-400);text-decoration:underline;font-weight:600;">webgpureport.org</a>.</li>
-            </ol>
-          </div>
+          ${browserGuideHtml}
           <div style="display:flex;align-items:center;justify-content:space-between;margin-top:4px;flex-wrap:wrap;gap:8px;">
             <button id="enableOfflineBypassBtn" style="background:rgba(56,189,248,0.18);border:1px solid rgba(56,189,248,0.5);color:var(--cyan-300);padding:7px 14px;border-radius:8px;font-size:0.78rem;font-weight:700;cursor:pointer;transition:all 0.2s;">
               ⚡ Unlock Input for Knowledge Pack & RIF Memory Queries
@@ -504,7 +620,7 @@ async function initKalpanaApp() {
           <div>
             <span>WebGPU Hardware Acceleration Disabled — Chat Input Box Locked</span>
             <div style="font-size:0.72rem;color:var(--text-muted);font-weight:400;margin-top:2px;">
-              Enable WebGPU in browser (<code style="color:var(--cyan-300);">chrome://flags/#enable-unsafe-webgpu</code>) or unlock Knowledge Pack search mode.
+              ${stickyNoticeTip}
             </div>
           </div>
         </div>
@@ -539,8 +655,8 @@ async function initKalpanaApp() {
       }
     }
 
-    lockChatInput('⚠️ WebGPU Disabled in Browser. Enable WebGPU or unlock Knowledge Pack mode...');
-    showToast('error', 'WebGPU Failed', 'Unable to create WebGPU Context Provider. Chat input locked until enabled.');
+    lockChatInput(`⚠️ WebGPU Disabled in ${info.browserName}. Enable WebGPU or unlock Knowledge Pack mode...`);
+    showToast('error', 'WebGPU Failed', `Unable to create WebGPU Context Provider in ${info.browserName}. Chat input locked until enabled.`);
   }
 
   // 7. Background WebLLM SmolLM2 360M Initializer with Visual Progress Bar
