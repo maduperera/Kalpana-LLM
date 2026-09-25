@@ -506,17 +506,17 @@ async function initKalpanaApp() {
     let stickyNoticeTip = '';
 
     if (info.browserName === 'Safari') {
-      stickyNoticeTip = `Enable WebGPU in Safari (Develop ➔ Feature Flags ➔ WebGPU or update to macOS Sequoia Safari 18+).`;
+      stickyNoticeTip = `Safari 18.6 requires feature flags under Develop ➔ Feature Flags ➔ WebGPU, or switch to Chrome/Edge for Mac.`;
       browserGuideHtml = `
         <div style="background:rgba(0,0,0,0.4);border:1px solid rgba(239,68,68,0.3);border-radius:10px;padding:12px 14px;font-size:0.78rem;">
           <div style="font-weight:700;color:#fff;margin-bottom:6px;display:flex;align-items:center;gap:6px;">
-            <span>🔧</span> How to Enable WebGPU in Safari (macOS):
+            <span>🔧</span> How to Enable WebGPU in Safari 18.6 (macOS):
           </div>
           <ol style="margin:0 0 0 18px;padding:0;color:var(--text-muted);line-height:1.7;">
-            <li><strong>Safari 18+ (macOS Sequoia):</strong> Open <strong>Safari ➔ Settings (⌘,) ➔ Advanced</strong> ➔ Check <em>"Show features for web developers"</em>. Then in menu bar: <strong>Develop ➔ Feature Flags ➔ WebGPU</strong>.</li>
-            <li><strong>Safari 17 (macOS Sonoma):</strong> Open <strong>Safari ➔ Settings ➔ Advanced</strong>, enable developer features, then check <strong>Develop ➔ Feature Flags ➔ WebGPU</strong> (or <em>Experimental Features</em>).</li>
-            <li><strong>Google Chrome / Edge on Mac:</strong> Alternatively, open in Chrome 113+ where WebGPU is hardware accelerated out-of-the-box at <code style="color:var(--cyan-300);">chrome://flags/#enable-unsafe-webgpu</code>.</li>
-            <li>Test GPU compatibility at <a href="https://webgpureport.org/" target="_blank" rel="noopener" style="color:var(--cyan-400);text-decoration:underline;font-weight:600;">webgpureport.org</a>.</li>
+            <li><strong>Enable Developer Features:</strong> Open <strong>Safari ➔ Settings (⌘,) ➔ Advanced</strong> ➔ Check <em>"Show features for web developers"</em>.</li>
+            <li><strong>Enable WebGPU Flags:</strong> In top macOS menu bar: open <strong>Develop ➔ Feature Flags</strong>. Search <strong>WebGPU</strong> and ensure <strong style="color:#34d399;">WebGPU</strong> & <strong style="color:#34d399;">WebGPU WGSL Shader Compiler</strong> are checked.</li>
+            <li><strong>Safari 18.6 Metal Engine Note:</strong> Safari 18.6's experimental WebGPU Metal backend often fails to compile complex WGSL shaders or allocate WebLLM FP16 tensor memory. For 100% full WebGPU acceleration on Mac, use <strong style="color:var(--cyan-300);">Google Chrome 113+ or Microsoft Edge for macOS</strong>.</li>
+            <li><strong>Instant Knowledge Pack Mode:</strong> Click the blue button below to unlock chat input instantly for Knowledge Pack & RIF Memory search without WebGPU neural model inference.</li>
           </ol>
         </div>
       `;

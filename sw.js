@@ -4,7 +4,7 @@
  * (c) Vijñāna AI | Kalpanā
  */
 
-const VERSION = '8.0.5';
+const VERSION = '8.0.6';
 const CACHE_NAME = `kalpana-llm-cache-v${VERSION}`;
 
 const ASSETS_TO_PRECACHE = [
